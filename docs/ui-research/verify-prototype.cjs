@@ -1,0 +1,21 @@
+// State-flow checks; this does not replace a rendered-browser or Android check.
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const elements=new Map(),events={};
+const element=s=>{if(!elements.has(s))elements.set(s,{checked:false,textContent:'',addEventListener(){}});return elements.get(s)};
+const document={querySelector:element,querySelectorAll:()=>[],addEventListener:(n,f)=>events[n]=f,body:{classList:{toggle(){}}}};
+const context=vm.createContext({document,structuredClone,console});
+const code=fs.readFileSync(__dirname+'/prototype-a.js','utf8').replace(/render\(\);\s*$/,'');
+vm.runInContext(code,context);vm.runInContext('render=()=>{}',context);
+const run=s=>vm.runInContext(s,context);
+const click=(act,rest={})=>events.click({target:{closest:()=>({dataset:{act,...rest}})}});
+run('openTask()');assert.equal(run('isDirty()'),false);
+run("editor.title='测试跨页任务';editor.tag=['工作'];editor.due=today");
+element('#simulate-error').checked=true;run('save()');assert.equal(run('editor.title'),'测试跨页任务');assert.equal(run('tasks.length'),9);
+element('#simulate-error').checked=false;run('save()');assert.equal(run('editor'),null);assert.equal(run('tasks.length'),10);
+const id=run('tasks.at(-1).id');click('complete',{id:String(id)});assert.equal(run('tasks.at(-1).done'),true);click('undo');assert.equal(run('tasks.at(-1).done'),false);
+run(`openTask(${id});editor.date=tomorrow;editor.due='';save()`);assert.equal(run('isFuture(tasks.at(-1))'),true);assert.equal(run('isToday(tasks.at(-1))'),false);
+run("page='搜索';query='中文字体'");assert.match(run('body()'),/备注/);assert.match(run('body()'),/<mark>中文字体<\/mark>/);
+run("query='';filterTag='工作'");assert.match(run('body()'),/测试跨页任务/);assert.doesNotMatch(run('body()'),/给妈妈打个电话/);
+run(`openTask(${id});editor.title='尚未保存';closeEditor()`);assert.equal(run('discard'),true);click('discard');assert.equal(run('tasks.at(-1).title'),'测试跨页任务');
+const before=run('JSON.stringify(tasks)');click('endday');assert.equal(run('todayClosed'),true);assert.equal(run('JSON.stringify(tasks)'),before);click('reopen');assert.equal(run('todayClosed'),false);assert.equal(run('JSON.stringify(tasks)'),before);click('settings');assert.equal(run('page'),'设置');
+console.log('PASS: draft/save, complete/undo, reschedule/search, note marker, UI-only close/reopen and direct settings.');
