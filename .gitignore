@@ -24,3 +24,4 @@ emulator-error.txt
 *.jks
 *.keystore
 /feedback-emulator-error.txt
+/crisp-emulator-error.txt

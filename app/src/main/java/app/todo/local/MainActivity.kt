@@ -25,6 +25,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -98,7 +101,9 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
     SideEffect { window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView).apply { isAppearanceLightStatusBars = !isDark; isAppearanceLightNavigationBars = !isDark } } }
     CompositionLocalProvider(LocalReducedMotion provides reducedMotion) {
     MaterialTheme(colorScheme = if (isDark) dark else light, typography = Typography(titleLarge = androidx.compose.ui.text.TextStyle(fontSize = 26.sp, fontWeight = FontWeight.SemiBold))) {
-        val tasks by vm.tasks.collectAsState(); val tags by vm.tags.collectAsState()
+        val storedTasks by vm.tasks.collectAsState(); val tags by vm.tags.collectAsState()
+        val presentation = rememberTaskPresentation(storedTasks, reducedMotion)
+        val tasks = presentation.tasks
         val loaded by vm.loaded.collectAsState(); val error by vm.readError.collectAsState(); val busy by vm.busy.collectAsState(); val draft by vm.editor.collectAsState()
         var page by rememberSaveable { mutableStateOf("今天") }
         var expandedTag by rememberSaveable { mutableStateOf<String?>(null) }
@@ -196,7 +201,7 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
                     if (expandedTag == id) {
                         if (rows.isEmpty()) item(key = "empty:$id") { Text("这里还没有待办", Modifier.padding(start = 40.dp, bottom = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
                         items(rows, key = { "tag:$id:task:${it.task.id}" }) { row ->
-                            Box(if (reducedMotion) Modifier else Modifier.animateItem()) { TaskRow(row, now, !busy, { vm.complete(row.task, true) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }) }
+                            Box(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(160), placementSpec = tween(280, easing = FastOutSlowInEasing), fadeOutSpec = tween(100))) { TaskRow(row, now, !busy, { vm.complete(row.task, true) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id]) }
                         }
                     }
                 }
@@ -251,12 +256,12 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
                     } }
                     groups.forEach { (group, rows) ->
                         if (group.isNotEmpty() && !(page == "今天" && groups.size == 1 && group == "今天")) item(key = "group:$group") { Text(group, Modifier.padding(top = 20.dp, bottom = 8.dp), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (group == "已过截止") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
-                        items(rows, key = { it.task.id }) { row -> Column(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(180), placementSpec = tween(220), fadeOutSpec = tween(180))) { TaskRow(row, now, !busy, { vm.complete(row.task, row.task.completedAt == null) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }) } }
+                        items(rows, key = { it.task.id }) { row -> Column(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(160), placementSpec = tween(280, easing = FastOutSlowInEasing), fadeOutSpec = tween(100))) { TaskRow(row, now, !busy, { vm.complete(row.task, row.task.completedAt == null) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id]) } }
                     }
                     if (page == "今天") {
                         val completed = tasks.filter { it.task.completedOn == now.toLocalDate().toString() }.sortedByDescending { it.task.completedAt }
                         if (completed.isNotEmpty()) item { TextButton(onClick = { completedOpen = !completedOpen }, modifier = Modifier.padding(top = 12.dp)) { Icon(if (completedOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null); Text("今天完成 ${completed.size} 项") } }
-                        if (completedOpen) items(completed, key = { "completed:${it.task.id}" }) { row -> TaskRow(row, now, !busy, { vm.complete(row.task, false) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }) }
+                        if (completedOpen) items(completed, key = { "completed:${it.task.id}" }) { row -> TaskRow(row, now, !busy, { vm.complete(row.task, false) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id]) }
                         item { TextButton(onClick = { finishToday() }, modifier = Modifier.padding(top = 12.dp)) { Icon(Icons.Outlined.NightsStay, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("结束一天") } }
                     }
                 } }
@@ -274,13 +279,17 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = click).semantics { stateDescription = if (expanded) "已展开" else "已收起" }, verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Text(name, Modifier.weight(1f).padding(horizontal = 12.dp)); Text(count.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant); Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, Modifier.padding(start = 8.dp)) }
 }
 @OptIn(ExperimentalLayoutApi::class)
-@Composable fun TaskRow(record: TaskRecord, now: LocalDateTime, enabled: Boolean, complete: () -> Unit, edit: () -> Unit) {
+@Composable fun TaskRow(record: TaskRecord, now: LocalDateTime, enabled: Boolean, complete: () -> Unit, edit: () -> Unit, completionTarget: Boolean? = null) {
     val t = record.task
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.Top) {
-        Checkbox(t.completedAt != null, { complete() }, enabled = enabled,
-            modifier = Modifier.padding(top = 4.dp).semantics { contentDescription = if (t.completedAt == null) "完成 ${t.title}" else "恢复 ${t.title}" })
-        Column(Modifier.weight(1f).clickable(onClick = edit).padding(top = 12.dp, bottom = 12.dp)) {
-            Text(t.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 16.sp, textDecoration = if (t.completedAt != null) TextDecoration.LineThrough else null)
+    val checked = completionTarget ?: (t.completedAt != null)
+    val reduced = LocalReducedMotion.current
+    val opacity by animateFloatAsState(if (completionTarget == true) .45f else 1f, tween(if (reduced) 0 else 160), label = "completion fade")
+    val scale by animateFloatAsState(if (completionTarget == true) .94f else 1f, tween(if (reduced) 0 else 120, easing = FastOutSlowInEasing), label = "check settle")
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).graphicsLayer { alpha = opacity }, verticalAlignment = Alignment.Top) {
+        Checkbox(checked, { complete() }, enabled = enabled && completionTarget == null,
+            modifier = Modifier.padding(top = 4.dp).graphicsLayer { scaleX = scale; scaleY = scale }.semantics { contentDescription = if (t.completedAt == null) "完成 ${t.title}" else "恢复 ${t.title}" })
+        Column(Modifier.weight(1f).clickable(enabled = completionTarget == null, onClick = edit).padding(top = 12.dp, bottom = 12.dp)) {
+            Text(t.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 16.sp, textDecoration = if (checked) TextDecoration.LineThrough else null)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (t.dueDate != null) Meta("${if (Rules.overdue(t, now)) "已过截止 · " else ""}截止 ${dateLabel(t.dueDate, now.toLocalDate())}${t.dueTime?.let { " $it" } ?: ""}", Rules.overdue(t, now))
             if (t.scheduleDate != null && (t.scheduleDate != now.toLocalDate().toString() || t.scheduleTime != null)) Meta("${if (t.completedAt == null && t.scheduleDate < now.toLocalDate().toString()) "此前安排 · " else ""}安排 ${dateLabel(t.scheduleDate, now.toLocalDate())}${t.scheduleTime?.let { " $it" } ?: ""}")

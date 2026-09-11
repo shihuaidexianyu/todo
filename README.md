@@ -20,7 +20,7 @@
 - **结束一天**：收起今天的列表，随时点击“重新展开今天”恢复。任务、日期与提醒保持原样；次日自动恢复显示。
 - **搜索与已完成**：查找任务，从底部导航直接查看完成记录，点击勾选框恢复任务。
 - **本地提醒与备份**：系统通知提醒，JSON 导出与恢复；无需账号，应用不申请网络权限。
-- **完成反馈**：完成与恢复不弹提示条；可选轻微震动与完成提示音，静音或勿扰时不播放提示音。
+- **完成反馈**：完成与恢复不弹提示条；勾选后淡出、列表平滑补位；可选轻微震动与清脆短音，静音或勿扰时不播放提示音。
 - **外观**：浅色、深色与跟随系统，支持减少动画。
 
 ## 📱 预览
@@ -30,13 +30,13 @@
   <img src="docs/assets/today-closed.png" width="260" alt="结束一天后可重新展开今天" />
 </p>
 
-截图来自 1.1.1 release 模拟器测试；新安装不含示例任务。
+截图来自 1.1.2 release 模拟器测试；新安装不含示例任务。
 
 ## 📦 安装
 
-在 [Releases](https://github.com/shihuaidexianyu/todo/releases/latest) 下载 `todo-1.1.1-release.apk`，在 Android 10 或以上设备安装。AAB 用于分发构建，手机安装请选择 APK。
+在 [Releases](https://github.com/shihuaidexianyu/todo/releases/latest) 下载 `todo-1.1.2-release.apk`，在 Android 10 或以上设备安装。AAB 用于分发构建，手机安装请选择 APK。
 
-当前版本 **1.1.1**（versionCode **4**），沿用此前 release 签名，可覆盖升级。Debug 版签名不同，迁移前请先在设置中导出备份。
+当前版本 **1.1.2**（versionCode **5**），沿用此前 release 签名，可覆盖升级。Debug 版签名不同，迁移前请先在设置中导出备份。
 
 ## 🧱 技术栈
 
@@ -66,7 +66,7 @@
 
 其他系统可使用 `./gradlew assembleDebug testDebugUnitTest lintDebug`。Release 签名配置及输出位置见 [构建说明](docs/build.md)。设备测试会清空测试安装的数据，并调整本应用的提醒权限，请使用专用测试环境。
 
-1.1.1 已通过 28 项单元测试、6 项界面工作流测试及 release 安装回归；Lint 无错误。覆盖范围见 [验证记录](docs/verification.md)。
+1.1.2 已通过 28 项单元测试、3 项针对性界面工作流测试及 release 安装回归；Lint 无错误。覆盖范围见 [验证记录](docs/verification.md)。
 
 ## 🗂️ 代码结构
 
@@ -81,4 +81,4 @@ app/src/main/java/app/todo/local/
 └── Motion.kt          动画设置
 ```
 
-[产品规格](todo-product-spec.md) · [UI 设计记录](docs/ui-research/design-notes.md)。原规格中的日终改期流程已由 1.1.1 的“仅收起今天”交互替代。
+[产品规格](todo-product-spec.md) · [UI 设计记录](docs/ui-research/design-notes.md)。原规格中的日终改期流程已由 1.1.2 的“仅收起今天”交互替代。

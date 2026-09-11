@@ -3,14 +3,25 @@ package app.todo.local
 import android.app.NotificationManager
 import android.content.Context
 import android.media.AudioManager
-import android.media.ToneGenerator
+import android.media.SoundPool
+import android.media.AudioAttributes
 import android.os.Build
 import android.view.HapticFeedbackConstants
 import android.view.View
 
 /** Feedback is emitted only after the task change is saved successfully. */
 class CompletionFeedback(private val context: Context) {
-    private var tone: ToneGenerator? = null
+    @Volatile private var loaded = false
+    private var sample = 0
+    private var stream = 0
+    private val pool = runCatching {
+        SoundPool.Builder().setMaxStreams(1).setAudioAttributes(AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()).build().also {
+            it.setOnLoadCompleteListener { _, _, status -> loaded = status == 0 }
+            sample = it.load(context, R.raw.complete, 1)
+        }
+    }.getOrNull()
 
     fun play(view: View, completed: Boolean, haptics: Boolean, sound: Boolean) {
         if (haptics) runCatching {
@@ -24,10 +35,12 @@ class CompletionFeedback(private val context: Context) {
             if (audio.ringerMode != AudioManager.RINGER_MODE_NORMAL ||
                 audio.getStreamVolume(AudioManager.STREAM_SYSTEM) == 0 ||
                 notifications.currentInterruptionFilter != NotificationManager.INTERRUPTION_FILTER_ALL) return
-            val player = tone ?: ToneGenerator(AudioManager.STREAM_SYSTEM, 25).also { tone = it }
-            player.startTone(ToneGenerator.TONE_PROP_ACK, 100)
+            val player = pool ?: return
+            if (!loaded) return // Never play a delayed confirmation after the interaction.
+            if (stream != 0) player.stop(stream)
+            stream = player.play(sample, .7f, .7f, 1, 0, 1f)
         }
     }
 
-    fun release() { runCatching { tone?.release() }; tone = null }
+    fun release() { loaded = false; runCatching { pool?.release() } }
 }

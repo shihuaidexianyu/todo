@@ -1,7 +1,7 @@
 param([Parameter(Mandatory=$true)][string]$Serial)
 $ErrorActionPreference = 'Stop'
 $taskAdb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
-$taskEvidence = Join-Path (Split-Path -Parent $PSScriptRoot) 'artifacts/release-validation/1.1.1'
+$taskEvidence = Join-Path (Split-Path -Parent $PSScriptRoot) 'artifacts/release-validation/1.1.2'
 function Device { & $taskAdb -s $Serial @args }
 function Tree {
     Device shell uiautomator dump /sdcard/todo-a.xml | Out-Null

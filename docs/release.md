@@ -1,3 +1,17 @@
+# todo 1.1.2
+
+[下载 APK / AAB](https://github.com/shihuaidexianyu/todo/releases/tag/v1.1.2) · versionCode 5，可覆盖原 release 安装。
+
+- 完成音换为原创玻璃拨弦短音，快速起音、165 ms 收尾，替换原系统蜂鸣音。
+- 保存成功后先呈现勾选，再淡出任务，列表缓动补位；统一今天与标签列表的节奏。
+- 减少动画模式直接更新，完成与恢复仍不弹提示条。
+
+音效源文件由 `scripts/generate-completion-sound.py` 生成，使用 [SoundPool](https://developer.android.com/reference/android/media/SoundPool) 预加载。沿用静音、勿扰和应用内声音开关。
+
+验证范围见 [验证记录](verification.md)。
+
+---
+
 # todo 1.1.1
 
 [下载 APK / AAB](https://github.com/shihuaidexianyu/todo/releases/tag/v1.1.1) · versionCode 4，可覆盖原 release 安装。
