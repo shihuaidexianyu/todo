@@ -1,3 +1,17 @@
+# todo 1.1.1
+
+[下载 APK / AAB](https://github.com/shihuaidexianyu/todo/releases/tag/v1.1.1) · versionCode 4，可覆盖原 release 安装。
+
+- 完成和恢复任务不再弹出提示条。
+- 加入轻微震动与短促完成提示音，在设置中可分别关闭；静音与勿扰时不播放声音。
+- “已完成”移至底部导航，直接查看与恢复任务。
+
+反馈仅在任务保存成功后触发。振动使用 [Android 触觉反馈接口](https://developer.android.com/develop/ui/views/haptics/haptic-feedback)，声音使用 [ToneGenerator](https://developer.android.com/reference/android/media/ToneGenerator)。
+
+验证范围见 [验证记录](verification.md)。
+
+---
+
 # todo 1.1.0
 
 [下载 APK / AAB](https://github.com/shihuaidexianyu/todo/releases/tag/v1.1.0) · versionCode 3，沿用原 release 签名，可覆盖安装。

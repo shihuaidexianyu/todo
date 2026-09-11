@@ -29,6 +29,7 @@ class TodoViewModel(app: Application) : AndroidViewModel(app) {
     val readError = MutableStateFlow(false)
     val busy = MutableStateFlow(false)
     val messages = MutableSharedFlow<Pair<String, String?>>(extraBufferCapacity = 10)
+    val completionFeedback = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
     private val drafts = app.getSharedPreferences("drafts", 0)
     val editor = MutableStateFlow(runCatching { drafts.getString("editor", null)?.let(EditorDraft::decode) }.getOrNull())
     init { observe() }
@@ -59,6 +60,6 @@ class TodoViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun save() { val d = editor.value ?: return; perform(block = { repo.save(d.task, d.names, d.reminder, d.isNew) }, after = { draft(null) }) }
-    fun complete(t: Task, value: Boolean) = perform(block = { repo.complete(t.id, value) }, after = { messages.tryEmit((if (value) "已完成" else "已恢复") to if (value) t.id else null) })
+    fun complete(t: Task, value: Boolean) = perform(block = { repo.complete(t.id, value) }, after = { completionFeedback.tryEmit(value) })
     fun resume() { viewModelScope.launch(Dispatchers.IO) { runCatching { scheduler.reconcile() }.onFailure { message("提醒恢复失败，请在设置中重试") } } }
 }

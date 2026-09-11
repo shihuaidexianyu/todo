@@ -1,7 +1,7 @@
 param([Parameter(Mandatory=$true)][string]$Serial)
 $ErrorActionPreference = 'Stop'
 $taskAdb = Join-Path $env:LOCALAPPDATA 'Android\Sdk\platform-tools\adb.exe'
-$taskEvidence = Join-Path (Split-Path -Parent $PSScriptRoot) 'artifacts/release-validation/1.1.0'
+$taskEvidence = Join-Path (Split-Path -Parent $PSScriptRoot) 'artifacts/release-validation/1.1.1'
 function Device { & $taskAdb -s $Serial @args }
 function Tree {
     Device shell uiautomator dump /sdcard/todo-a.xml | Out-Null
@@ -61,6 +61,18 @@ Tap '//node[@text="重新展开今天"]'
 $null = Find '//node[@content-desc="完成 ReleaseNote"]'
 $null = Find '//node[@text="NoteDetails"]'
 Write-Output 'PASS: close persists across restart; task remains in tags and reappears on reopen.'
+Tap '//node[@content-desc="完成 ReleaseNote"]'
+$null = Find '//node[@text="今天完成 1 项"]'
+if ((Tree).SelectSingleNode('//node[@text="撤销"]')) { throw 'Unexpected completion banner' }
+Tap '//node[@text="已完成"]'
+$null = Find '//node[@content-desc="恢复 ReleaseNote"]'
+Capture 'release-completed'
+Tap '//node[@content-desc="恢复 ReleaseNote"]'
+$null = Find '//node[@text="还没有已完成的任务。"]'
+if ((Tree).SelectSingleNode('//node[@text="已恢复"]')) { throw 'Unexpected restore banner' }
+Tap '//node[@text="今天"]'
+$null = Find '//node[@content-desc="完成 ReleaseNote"]'
+Write-Output 'PASS: complete and restore without banners through bottom navigation.'
 Tap '//node[@content-desc="设置"]'
 $null = Find '//node[@text="外观"]'
 Tap '//node[@text="已完成"]'

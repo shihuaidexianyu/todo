@@ -23,3 +23,4 @@ emulator-error.txt
 *.p12
 *.jks
 *.keystore
+/feedback-emulator-error.txt

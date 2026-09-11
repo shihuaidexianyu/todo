@@ -10,7 +10,7 @@ try {
     if (-not (Test-Path -LiteralPath 'local.properties')) {
         Set-Content -LiteralPath 'local.properties' -Value ('sdk.dir=' + $taskSdk.Replace('\', '/').Replace(':', '\:')) -NoNewline
     }
-    New-Item -ItemType Directory -Force -Path '.signing','artifacts/release-validation/1.1.0' | Out-Null
+    New-Item -ItemType Directory -Force -Path '.signing','artifacts/release-validation/1.1.1' | Out-Null
     $taskKeyFile = Join-Path $taskRoot '.signing\todo-release.p12'
     $taskKeyConfig = Join-Path $taskRoot '.signing\keystore.properties'
     if ((Test-Path -LiteralPath $taskKeyConfig) -and -not (Test-Path -LiteralPath $taskKeyFile)) {
@@ -39,13 +39,13 @@ try {
     }
     & .\gradlew.bat assembleRelease bundleRelease testReleaseUnitTest lintRelease --console=plain --no-daemon
     if ($LASTEXITCODE -ne 0) { throw 'Release 构建或检查失败。' }
-    Copy-Item -LiteralPath app/build/outputs/apk/release/app-release.apk -Destination artifacts/todo-1.1.0-release.apk
-    Copy-Item -LiteralPath app/build/outputs/bundle/release/app-release.aab -Destination artifacts/todo-1.1.0-release.aab
-    Copy-Item -LiteralPath app/build/outputs/mapping/release/mapping.txt -Destination artifacts/release-validation/1.1.0/mapping.txt
+    Copy-Item -LiteralPath app/build/outputs/apk/release/app-release.apk -Destination artifacts/todo-1.1.1-release.apk
+    Copy-Item -LiteralPath app/build/outputs/bundle/release/app-release.aab -Destination artifacts/todo-1.1.1-release.aab
+    Copy-Item -LiteralPath app/build/outputs/mapping/release/mapping.txt -Destination artifacts/release-validation/1.1.1/mapping.txt
     $taskSigner = Join-Path $taskSdk 'build-tools\36.0.0\apksigner.bat'
-    & $taskSigner verify --verbose --print-certs artifacts/todo-1.1.0-release.apk | Tee-Object -FilePath artifacts/release-validation/1.1.0/signature.txt
+    & $taskSigner verify --verbose --print-certs artifacts/todo-1.1.1-release.apk | Tee-Object -FilePath artifacts/release-validation/1.1.1/signature.txt
     if ($LASTEXITCODE -ne 0) { throw 'APK 签名校验失败。' }
-    Get-FileHash -Algorithm SHA256 -LiteralPath artifacts/todo-1.1.0-release.apk,artifacts/todo-1.1.0-release.aab | Format-List | Out-File artifacts/release-validation/1.1.0/sha256.txt
+    Get-FileHash -Algorithm SHA256 -LiteralPath artifacts/todo-1.1.1-release.apk,artifacts/todo-1.1.1-release.aab | Format-List | Out-File artifacts/release-validation/1.1.1/sha256.txt
     Write-Output 'Release APK 和 AAB 已生成。请自行备份 .signing 目录，用于后续版本更新。'
 } finally { Pop-Location }
 

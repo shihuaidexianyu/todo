@@ -38,8 +38,13 @@ class WorkflowTest {
         ui.onNodeWithText("整理本周的阅读笔记").assertIsDisplayed()
         screenshot("02-today-task-light")
         ui.onNodeWithContentDescription("完成 整理本周的阅读笔记").performClick()
-        ui.waitUntil(8_000) { ui.onAllNodesWithText("撤销").fetchSemanticsNodes().isNotEmpty() }
-        ui.onNodeWithText("撤销").performClick()
+        ui.waitUntil(8_000) { ui.onAllNodesWithText("今天完成 1 项").fetchSemanticsNodes().isNotEmpty() }
+        ui.onNodeWithText("撤销").assertDoesNotExist()
+        ui.onNodeWithText("已完成").performClick()
+        ui.onNodeWithContentDescription("恢复 整理本周的阅读笔记").performClick()
+        ui.waitUntil(8_000) { ui.onAllNodesWithText("还没有已完成的任务。").fetchSemanticsNodes().isNotEmpty() }
+        ui.onNodeWithText("已恢复").assertDoesNotExist()
+        ui.onNodeWithText("今天").performClick()
         ui.waitUntil(8_000) { ui.onAllNodesWithText("整理本周的阅读笔记").fetchSemanticsNodes().isNotEmpty() }
         ui.onNodeWithText("整理本周的阅读笔记").assertIsDisplayed()
         val repo = (ui.activity.application as TodoApplication).repository
@@ -97,6 +102,17 @@ class WorkflowTest {
         // Leave test settings as they were for repeatability.
         ui.onNodeWithContentDescription("设置").performClick(); ui.onNodeWithText("跟随系统").performClick()
     }
+    @Test fun completionFeedbackSettingsPersist() {
+        ui.onNodeWithContentDescription("设置").performClick()
+        ui.onAllNodesWithText("已完成").assertCountEquals(1) // Only the bottom navigation entry.
+        ui.onNodeWithContentDescription("操作震动").performScrollTo().assertIsOn().performClick()
+        ui.onNodeWithContentDescription("完成提示音").performScrollTo().assertIsOn().performClick()
+        ui.activityRule.scenario.recreate()
+        ui.onNodeWithContentDescription("操作震动").performScrollTo().assertIsOff()
+        ui.onNodeWithContentDescription("完成提示音").performScrollTo().assertIsOff()
+        ui.onNodeWithContentDescription("操作震动").performScrollTo().performClick()
+        ui.onNodeWithContentDescription("完成提示音").performScrollTo().performClick()
+    }
     @Test fun navigationWithMixedDatesAndCompletionHistory() {
         val repo = (ui.activity.application as TodoApplication).repository
         val today = java.time.LocalDate.now()
@@ -115,7 +131,6 @@ class WorkflowTest {
             ui.onNodeWithText(future.title).assertIsDisplayed()
             ui.onNodeWithText(active.title).assertDoesNotExist()
             ui.onNodeWithText("今天").performClick()
-            ui.onNodeWithContentDescription("设置").performClick()
             ui.onNodeWithText("已完成").performClick()
             ui.onNodeWithText(done.title).assertIsDisplayed()
             ui.onNodeWithText(active.title).assertDoesNotExist()

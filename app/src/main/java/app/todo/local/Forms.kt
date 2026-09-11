@@ -269,14 +269,15 @@ fun EditorSheet(draft: EditorDraft, tags: List<Tag>, busy: Boolean, vm: TodoView
 fun openNotificationSettings(context: android.content.Context) { runCatching { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) } }
 fun openExactSettings(context: android.content.Context) { if (Build.VERSION.SDK_INT >= 31) runCatching { context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))) } }
 @OptIn(ExperimentalLayoutApi::class)
-@Composable fun SettingsPage(modifier: Modifier, appearance: String, setAppearance: (String) -> Unit, reduce: Boolean, setReduce: (Boolean) -> Unit, lockTitle: Boolean, setLockTitle: (Boolean) -> Unit, vm: TodoViewModel, tick: Int, export: () -> Unit, import: () -> Unit, openCompleted: (() -> Unit)? = null) {
+@Composable fun SettingsPage(modifier: Modifier, appearance: String, setAppearance: (String) -> Unit, reduce: Boolean, setReduce: (Boolean) -> Unit, lockTitle: Boolean, setLockTitle: (Boolean) -> Unit, vm: TodoViewModel, tick: Int, export: () -> Unit, import: () -> Unit, haptics: Boolean, setHaptics: (Boolean) -> Unit, sound: Boolean, setSound: (Boolean) -> Unit) {
     val context = LocalContext.current
     val status = remember(tick) { vm.scheduler.status() }
     Column(modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        TextButton(onClick = { openCompleted?.invoke() }) { Icon(Icons.Outlined.DoneAll, null); Spacer(Modifier.width(8.dp)); Text("已完成") }
         Text("外观", style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("跟随系统", "浅色", "深色").forEach { FilterChip(appearance == it, { setAppearance(it) }, label = { Text(it) }) } }
         SettingSwitch("减少动画", "默认跟随系统；开启后直接呈现状态变化。", reduce, setReduce)
+        SettingSwitch("操作震动", "完成和恢复任务时轻触反馈", haptics, setHaptics)
+        SettingSwitch("完成提示音", "静音或勿扰时不播放", sound, setSound)
         SettingSwitch("锁屏显示任务标题", "默认隐藏任务内容，并尊重系统隐私设置。", lockTitle, setLockTitle)
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         Text("提醒状态", style = MaterialTheme.typography.titleMedium)

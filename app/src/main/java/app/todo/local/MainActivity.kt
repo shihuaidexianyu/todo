@@ -80,6 +80,18 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
     var appearance by remember { mutableStateOf(settings.getString("appearance", "跟随系统")!!) }
     var reduce by remember { mutableStateOf(settings.getBoolean("reduce", false)) }
     var lockTitle by remember { mutableStateOf(settings.getBoolean("lock_title", false)) }
+    var haptics by remember { mutableStateOf(settings.getBoolean("completion_haptics", true)) }
+    var sound by remember { mutableStateOf(settings.getBoolean("completion_sound", true)) }
+    val feedback = remember(context) { CompletionFeedback(context) }
+    val feedbackView = LocalView.current
+    val currentHaptics by rememberUpdatedState(haptics)
+    val currentSound by rememberUpdatedState(sound)
+    DisposableEffect(feedback) { onDispose { feedback.release() } }
+    LaunchedEffect(vm, feedback, feedbackView) {
+        vm.completionFeedback.collect { completed ->
+            if (feedbackView.hasWindowFocus()) feedback.play(feedbackView, completed, currentHaptics, currentSound)
+        }
+    }
     val isDark = appearance == "深色" || appearance == "跟随系统" && isSystemInDarkTheme()
     val reducedMotion = reduce || Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
     val window = (context as? android.app.Activity)?.window
@@ -128,7 +140,7 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
                 val buffer = CharArray(8192); val text = StringBuilder(); while (true) { val n = reader.read(buffer); if (n < 0) break; require(text.length + n <= 30_000_000); text.append(buffer, 0, n) }; BackupCodec.decode(text.toString()) } }
             } catch (_: Exception) { vm.message("无法恢复：备份损坏、引用不完整或版本不兼容；现有数据未改变") } }
         }
-        val primary = page in listOf("今天", "收件箱", "标签")
+        val primary = page in listOf("今天", "收件箱", "标签", "已完成")
         BackHandler(!primary && draft == null) { page = if (page.startsWith("tag:") || page in listOf("全部待办", "无标签")) "标签" else "今天" }
         fun add() { vm.draft(EditorDraft(Task(scheduleDate = if (page == "今天") now.toLocalDate().toString() else null), if (page == "标签") tags.filter { it.id == expandedTag }.map { it.name } else emptyList(), null, true)) }
         val title = if (page.startsWith("tag:")) tags.firstOrNull { it.id == page.removePrefix("tag:") }?.name ?: "标签" else page
@@ -156,7 +168,7 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
 
                 }
             } },
-            bottomBar = { NavigationBar { listOf("今天" to Icons.Outlined.WbSunny, "收件箱" to Icons.Outlined.Inbox, "标签" to Icons.Outlined.Label).forEach { (name, icon) ->
+            bottomBar = { NavigationBar { listOf("今天" to Icons.Outlined.WbSunny, "收件箱" to Icons.Outlined.Inbox, "标签" to Icons.Outlined.Label, "已完成" to Icons.Outlined.DoneAll).forEach { (name, icon) ->
                 NavigationBarItem(selected = page == name || name == "标签" && (page.startsWith("tag:") || page == "全部待办" || page == "无标签"), onClick = { page = name }, icon = { Icon(icon, null) }, label = { Text(name) })
             } } },
             floatingActionButton = { if (page !in listOf("设置", "搜索", "已完成") && !(page == "今天" && todayHidden) && loaded && !error) FloatingActionButton(onClick = { add() }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = RoundedCornerShape(16.dp)) { Icon(Icons.Outlined.Add, "添加任务") } }
@@ -164,7 +176,7 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
             val body = Modifier.padding(padding).fillMaxSize()
             if (error) Column(body.padding(24.dp)) { Text("无法读取本地数据库，数据未被清除。"); Button(onClick = { vm.observe() }) { Text("重试") } }
             else if (!loaded) Box(body, contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            else if (page == "设置") SettingsPage(body, appearance, { appearance = it; settings.edit().putString("appearance", it).apply() }, reduce, { reduce = it; settings.edit().putBoolean("reduce", it).apply() }, lockTitle, { lockTitle = it; settings.edit().putBoolean("lock_title", it).apply() }, vm, statusTick, { exportConfirm = true }, { import.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, { page = "已完成" })
+            else if (page == "设置") SettingsPage(body, appearance, { appearance = it; settings.edit().putString("appearance", it).apply() }, reduce, { reduce = it; settings.edit().putBoolean("reduce", it).apply() }, lockTitle, { lockTitle = it; settings.edit().putBoolean("lock_title", it).apply() }, vm, statusTick, { exportConfirm = true }, { import.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, haptics, { haptics = it; settings.edit().putBoolean("completion_haptics", it).apply() }, sound, { sound = it; settings.edit().putBoolean("completion_sound", it).apply() })
             else if (page == "今天" && todayHidden) Column(body.padding(horizontal = 24.dp, vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Outlined.NightsStay, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
                 Text("今天已收尾", Modifier.padding(top = 16.dp), style = MaterialTheme.typography.titleMedium)
@@ -265,8 +277,7 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
 @Composable fun TaskRow(record: TaskRecord, now: LocalDateTime, enabled: Boolean, complete: () -> Unit, edit: () -> Unit) {
     val t = record.task
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.Top) {
-        val view = LocalView.current
-        Checkbox(t.completedAt != null, { complete(); view.performHapticFeedback(android.view.HapticFeedbackConstants.VIRTUAL_KEY) }, enabled = enabled,
+        Checkbox(t.completedAt != null, { complete() }, enabled = enabled,
             modifier = Modifier.padding(top = 4.dp).semantics { contentDescription = if (t.completedAt == null) "完成 ${t.title}" else "恢复 ${t.title}" })
         Column(Modifier.weight(1f).clickable(onClick = edit).padding(top = 12.dp, bottom = 12.dp)) {
             Text(t.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 16.sp, textDecoration = if (t.completedAt != null) TextDecoration.LineThrough else null)
