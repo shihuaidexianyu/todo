@@ -64,7 +64,8 @@ fun EditorSheet(draft: EditorDraft, tags: List<Tag>, busy: Boolean, vm: TodoView
         confirmValueChange = confirmSheetChange)
     TodoBottomSheet(onDismissRequest = { dismiss() }, sheetState = editorSheetState,
         dragHandle = { BottomSheetDefaults.DragHandle() }) {
-        Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        Column(Modifier.fillMaxWidth().fillMaxHeight(.94f).imePadding()) {
+            Column(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 20.dp).verticalScroll(rememberScrollState()).padding(bottom = 8.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (draft.isNew) "新建任务" else "任务详情", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 IconButton(onClick = { dismiss() }, enabled = !busy) { Icon(Icons.Outlined.Close, "关闭编辑") }
@@ -119,10 +120,12 @@ fun EditorSheet(draft: EditorDraft, tags: List<Tag>, busy: Boolean, vm: TodoView
             if (Rules.conflict(t)) Meta("安排晚于截止", true)
             if (old?.reminder?.mode == "schedule" && draft.reminder == null && t.scheduleTime == null) Meta("保存后将取消跟随安排的提醒")
             if (old?.reminder?.mode == "due" && draft.reminder == null && t.dueTime == null) Meta("保存后将取消跟随截止的提醒")
-            Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.End) {
-                Button(onClick = { vm.save() }, enabled = !busy && t.title.isNotBlank(), shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp), modifier = Modifier.heightIn(min = 48.dp)) { Text(if (busy) "保存中…" else "保存"); Spacer(Modifier.width(8.dp)); Icon(Icons.Outlined.Check, null, Modifier.size(16.dp)) }
             }
-            if (!draft.isNew) TextButton(onClick = { delete = true }, enabled = !busy, modifier = Modifier.fillMaxWidth()) { Text("删除任务", color = MaterialTheme.colorScheme.error) }
+            Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 20.dp, top = 4.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (!draft.isNew) TextButton(onClick = { delete = true }, enabled = !busy) { Text("删除任务", color = MaterialTheme.colorScheme.error) }
+                Spacer(Modifier.weight(1f))
+                Button(onClick = { vm.save() }, enabled = !busy && t.title.isNotBlank(), shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), modifier = Modifier.heightIn(min = 48.dp)) { Text(if (busy) "保存中…" else "保存"); Spacer(Modifier.width(8.dp)); Icon(Icons.Outlined.Check, null, Modifier.size(16.dp)) }
+            }
         }
         val reduced = LocalReducedMotion.current
         LaunchedEffect(t.id) {
@@ -187,7 +190,7 @@ fun EditorSheet(draft: EditorDraft, tags: List<Tag>, busy: Boolean, vm: TodoView
 @OptIn(ExperimentalLayoutApi::class)
 @Composable fun InlineTagPicker(tags: List<Tag>, selected: List<String>, update: (List<String>) -> Unit, dismiss: () -> Unit) {
     var search by rememberSaveable { mutableStateOf("") }
-    Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(16.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+    Surface(shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
         Column(Modifier.fillMaxWidth().padding(12.dp)) {
             OutlinedTextField(search, { if (it.length <= 30) search = it }, label = { Text("搜索或创建标签") }, modifier = Modifier.fillMaxWidth(), singleLine = true)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -269,35 +272,35 @@ fun EditorSheet(draft: EditorDraft, tags: List<Tag>, busy: Boolean, vm: TodoView
 fun openNotificationSettings(context: android.content.Context) { runCatching { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) } }
 fun openExactSettings(context: android.content.Context) { if (Build.VERSION.SDK_INT >= 31) runCatching { context.startActivity(Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, Uri.parse("package:${context.packageName}"))) } }
 @OptIn(ExperimentalLayoutApi::class)
-@Composable fun SettingsPage(modifier: Modifier, appearance: String, setAppearance: (String) -> Unit, reduce: Boolean, setReduce: (Boolean) -> Unit, lockTitle: Boolean, setLockTitle: (Boolean) -> Unit, vm: TodoViewModel, tick: Int, export: () -> Unit, import: () -> Unit, haptics: Boolean, setHaptics: (Boolean) -> Unit, sound: Boolean, setSound: (Boolean) -> Unit) {
+@Composable fun SettingsPage(modifier: Modifier, appearance: String, setAppearance: (String) -> Unit, reduce: Boolean, setReduce: (Boolean) -> Unit, lockTitle: Boolean, setLockTitle: (Boolean) -> Unit, vm: TodoViewModel, tick: Int, haptics: Boolean, setHaptics: (Boolean) -> Unit, sound: Boolean, setSound: (Boolean) -> Unit, swipeRight: String, setSwipeRight: (String) -> Unit, swipeLeft: String, setSwipeLeft: (String) -> Unit) {
     val context = LocalContext.current
     val status = remember(tick) { vm.scheduler.status() }
     Column(modifier.verticalScroll(rememberScrollState()).padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("外观", style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("跟随系统", "浅色", "深色").forEach { FilterChip(appearance == it, { setAppearance(it) }, label = { Text(it) }) } }
-        SettingSwitch("减少动画", "默认跟随系统；开启后直接呈现状态变化。", reduce, setReduce)
+        SettingSwitch("减少动画", "开启后直接呈现状态变化。", reduce, setReduce)
+        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+        Text("手势与反馈", style = MaterialTheme.typography.titleMedium)
         SettingSwitch("操作震动", "完成和恢复任务时轻触反馈", haptics, setHaptics)
         SettingSwitch("完成提示音", "静音或勿扰时不播放", sound, setSound)
-        SettingSwitch("锁屏显示任务标题", "默认隐藏任务内容，并尊重系统隐私设置。", lockTitle, setLockTitle)
+        Text("右滑", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("完成或恢复", "安排到明天", "关闭").forEach { FilterChip(swipeRight == it, { setSwipeRight(it) }, label = { Text(it) }) } }
+        Text("左滑", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("安排到明天", "完成或恢复", "关闭").forEach { FilterChip(swipeLeft == it, { setSwipeLeft(it) }, label = { Text(it) }) } }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Text("提醒状态", style = MaterialTheme.typography.titleMedium)
-        Text(status)
-        val manager = context.getSystemService(android.app.NotificationManager::class.java)
-        Meta("通知通道：${if (manager.getNotificationChannel(ReminderScheduler.CHANNEL)?.importance == android.app.NotificationManager.IMPORTANCE_NONE) "已关闭" else "已开启"}")
-        Meta("精确提醒：${if (vm.scheduler.exactAllowed()) "已授权" else "未授权，可能延迟"}")
+        Text("提醒", style = MaterialTheme.typography.titleMedium)
+        Meta(status)
         if (vm.scheduler.failed()) Meta("任务已保存，提醒未能启用", true)
-        TextButton(onClick = { openNotificationSettings(context) }) { Text("通知设置") }
-        if (Build.VERSION.SDK_INT >= 31) TextButton(onClick = { openExactSettings(context) }) { Text("精确提醒授权") }
-        TextButton(onClick = { vm.resume(); vm.message("已请求重新检查提醒") }) { Text("重新检查提醒") }
-        Text("关机、强行停止或系统省电限制可能影响提醒。再次打开后会重新协调，不保证任何情况下都准时。", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SettingSwitch("锁屏显示任务标题", "默认隐藏任务内容，并尊重系统隐私设置。", lockTitle, setLockTitle)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = { openNotificationSettings(context) }) { Text("通知设置") }
+            if (Build.VERSION.SDK_INT >= 31) TextButton(onClick = { openExactSettings(context) }) { Text("精确提醒授权") }
+            TextButton(onClick = { vm.resume(); vm.message("已请求重新检查提醒") }) { Text("重新检查提醒") }
+        }
+        Meta("关机或省电限制可能影响提醒准时。")
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Text("本地数据", style = MaterialTheme.typography.titleMedium)
-        OutlinedButton(onClick = export, modifier = Modifier.fillMaxWidth()) { Text("导出备份") }
-        OutlinedButton(onClick = import, modifier = Modifier.fillMaxWidth()) { Text("恢复备份") }
-        Text("数据只保存在此设备。卸载或设备丢失可能导致数据丢失，请自行保管手动备份文件。自动云备份已禁用。", fontSize = 14.sp)
-        Text("日期和钟点跟随手机所在地的本地时间。更换时区后保留填写的钟点，并重新计算提醒。", fontSize = 14.sp)
-        HorizontalDivider(Modifier.padding(vertical = 8.dp))
-        Text("todo", style = MaterialTheme.typography.titleLarge); Text("版本 ${BuildConfig.VERSION_NAME}"); Text("随手记下，安排好，再放下。", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Meta("数据只保存在此设备，卸载或丢失后无法找回。")
+        Meta("todo · 版本 ${BuildConfig.VERSION_NAME}")
         Spacer(Modifier.height(20.dp))
     }
 }

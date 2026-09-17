@@ -48,7 +48,7 @@ fun TodoBottomSheet(onDismissRequest: () -> Unit, sheetState: SheetState,
         val view = LocalView.current
         SideEffect { (view.parent as? DialogWindowProvider)?.window?.setWindowAnimations(0) }
         Box(Modifier.fillMaxWidth().fillMaxHeight(.94f).statusBarsPadding(), contentAlignment = Alignment.BottomCenter) {
-            Surface(shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp), tonalElevation = 1.dp) {
+            Surface(shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp), tonalElevation = 1.dp) {
                 Column(Modifier.fillMaxWidth().navigationBarsPadding()) { dragHandle?.invoke(); content() }
             }
         }

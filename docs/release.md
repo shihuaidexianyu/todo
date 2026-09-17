@@ -1,3 +1,18 @@
+# todo 1.2.0
+
+[下载 APK / AAB](https://github.com/shihuaidexianyu/todo/releases/tag/v1.2.0) · versionCode 6，沿用原 release 签名，可覆盖安装。
+
+- 列表手势：右滑完成或恢复，左滑安排到明天；两个方向可在「设置 → 手势与反馈」分别改为完成或恢复、安排到明天或关闭。滑动时浮现圆形图标，滑过触发点有轻微震动。
+- 今天的任务全部完成后，空状态变为庆祝提示。
+- 支持从系统分享文本直接新建任务（首行为标题、余下为备注），长按桌面图标可快速新建。
+- 任务行加高，创建页改为近全屏弹层，保存按钮固定在底部操作栏。
+- 设置页重组为外观、手势与反馈、提醒三组，删除冗余说明。
+- 移除应用内 JSON 备份与恢复功能；系统级自动备份保持关闭，卸载会清除本地数据。
+
+验证范围见 [验证记录](verification.md)。
+
+---
+
 # todo 1.1.2
 
 [下载 APK / AAB](https://github.com/shihuaidexianyu/todo/releases/tag/v1.1.2) · versionCode 5，可覆盖原 release 安装。

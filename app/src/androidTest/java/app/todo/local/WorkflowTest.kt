@@ -1,5 +1,6 @@
 package app.todo.local
 
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -22,7 +23,7 @@ class WorkflowTest {
     private fun add(title: String) {
         ui.onNodeWithContentDescription("添加任务").performClick()
         ui.onNodeWithText("标题").performTextInput(title)
-        ui.onNodeWithText("保存").performScrollTo().performClick()
+        ui.onNodeWithText("保存").performClick()
         ui.waitUntil(8_000) { ui.onAllNodesWithText("标题").fetchSemanticsNodes().isEmpty() }
     }
     private fun screenshot(name: String) {
@@ -40,6 +41,7 @@ class WorkflowTest {
         ui.onNodeWithContentDescription("完成 整理本周的阅读笔记").performClick()
         ui.waitUntil(8_000) { ui.onAllNodesWithText("今天完成 1 项").fetchSemanticsNodes().isNotEmpty() }
         ui.onNodeWithText("撤销").assertDoesNotExist()
+        ui.onNodeWithText("清单").performClick()
         ui.onNodeWithText("已完成").performClick()
         ui.onNodeWithContentDescription("恢复 整理本周的阅读笔记").performClick()
         ui.waitUntil(8_000) { ui.onAllNodesWithText("还没有已完成的任务。").fetchSemanticsNodes().isNotEmpty() }
@@ -55,8 +57,9 @@ class WorkflowTest {
         Assert.assertEquals(before, runBlocking { repo.dao.records() })
         ui.activityRule.scenario.recreate()
         ui.onNodeWithText("重新展开今天").assertIsDisplayed()
-        ui.onNodeWithText("标签").performClick()
-        ui.onNodeWithText("全部待办").performClick()
+        ui.onNodeWithText("清单").performClick()
+        // 清单页的标签页状态会随 rememberSaveable 恢复（当前停在「已完成」），先切回「全部」再断言。
+        ui.onNodeWithText("全部").performClick()
         ui.onNodeWithText("整理本周的阅读笔记").assertIsDisplayed()
         ui.onNodeWithText("今天").performClick()
         screenshot("03-today-closed")
@@ -76,14 +79,16 @@ class WorkflowTest {
         ui.onNodeWithText("搜索或创建标签").performTextInput("生活")
         ui.onNodeWithText("创建标签“生活”").performClick()
         ui.onNodeWithText("完成选择").performClick()
-        ui.onNodeWithText("保存").performScrollTo().performClick()
+        ui.onNodeWithText("保存").performClick()
         ui.waitUntil(8_000) { ui.onAllNodesWithText("标题").fetchSemanticsNodes().isEmpty() }
+        ui.onNodeWithText("买一盏阅读灯").assertDoesNotExist()
+        screenshot("05-inbox-light")
+        ui.onNodeWithText("清单").performClick()
+        ui.onNodeWithText("生活").performClick()
         ui.onNodeWithText("买一盏阅读灯").assertIsDisplayed()
         ui.onNodeWithText("#生活").assertIsDisplayed()
         ui.onNodeWithContentDescription("有备注：买一盏阅读灯", useUnmergedTree = true).assertExists()
         ui.onNodeWithText("暖光，放在书桌旁").assertIsDisplayed()
-        screenshot("05-inbox-light")
-        ui.onNodeWithContentDescription("搜索").performClick()
         ui.onNodeWithText("搜索标题、备注或标签").performTextInput("暖光")
         ui.onNodeWithText("买一盏阅读灯").assertIsDisplayed()
     }
@@ -104,7 +109,6 @@ class WorkflowTest {
     }
     @Test fun completionFeedbackSettingsPersist() {
         ui.onNodeWithContentDescription("设置").performClick()
-        ui.onAllNodesWithText("已完成").assertCountEquals(1) // Only the bottom navigation entry.
         ui.onNodeWithContentDescription("操作震动").performScrollTo().assertIsOn().performClick()
         ui.onNodeWithContentDescription("完成提示音").performScrollTo().assertIsOn().performClick()
         ui.activityRule.scenario.recreate()
@@ -131,6 +135,7 @@ class WorkflowTest {
             ui.onNodeWithText(future.title).assertIsDisplayed()
             ui.onNodeWithText(active.title).assertDoesNotExist()
             ui.onNodeWithText("今天").performClick()
+            ui.onNodeWithText("清单").performClick()
             ui.onNodeWithText("已完成").performClick()
             ui.onNodeWithText(done.title).assertIsDisplayed()
             ui.onNodeWithText(active.title).assertDoesNotExist()
@@ -150,27 +155,76 @@ class WorkflowTest {
         ui.onNodeWithText("创建标签“工作”").performScrollTo().performClick()
         ui.onNodeWithText("标题").assertExists()
         ui.onNodeWithText("完成选择").performScrollTo().performClick()
-        ui.onNodeWithText("保存").performScrollTo().performClick()
+        ui.onNodeWithText("保存").performClick()
         ui.waitUntil(8_000) { ui.onAllNodesWithText("标题").fetchSemanticsNodes().isEmpty() }
         ui.onNodeWithText("已保存").assertDoesNotExist()
         val repo = (ui.activity.application as TodoApplication).repository
         val saved = runBlocking { repo.dao.records().single() }
         Assert.assertEquals(java.time.LocalDate.now().toString(), saved.task.dueDate)
-        ui.onNodeWithText("标签").performClick()
+        ui.onNodeWithText("清单").performClick()
         ui.onNodeWithText("工作").performClick()
         ui.onNodeWithText("快捷截止任务").assertIsDisplayed()
-        ui.onNodeWithText("按标签整理").assertIsDisplayed()
         screenshot("12-tags-inline")
-        ui.onNodeWithText("工作").performClick()
+        ui.onNodeWithText("无标签").performClick()
         ui.onNodeWithText("快捷截止任务").assertDoesNotExist()
-        ui.onNodeWithContentDescription("搜索").performClick()
-        ui.onNodeWithText("从一个关键词开始").assertIsDisplayed()
+        ui.onNodeWithText("无标签").performClick()
         ui.onNodeWithText("搜索标题、备注或标签").performTextInput("快捷")
         ui.onNodeWithText("快捷截止任务").assertIsDisplayed()
         screenshot("13-search")
         ui.onNodeWithContentDescription("清空搜索").performClick()
-        ui.onNodeWithText("从一个关键词开始").assertIsDisplayed()
     }
+    @Test fun swipeCompletesRestoresAndSchedulesTomorrow() {
+        add("滑动处理的任务")
+        ui.onNodeWithText("滑动处理的任务").assertIsDisplayed()
+        swipeRow("滑动处理的任务", left = false)
+        ui.waitUntil(8_000) { ui.onAllNodesWithText("今天完成 1 项").fetchSemanticsNodes().isNotEmpty() }
+        // Completing the last task turns the empty state into a celebration.
+        ui.onNodeWithText("今天的都完成了。").assertIsDisplayed()
+        ui.onNodeWithText("清单").performClick()
+        ui.onNodeWithText("已完成").performClick()
+        swipeRow("滑动处理的任务", left = false)
+        ui.waitUntil(8_000) { ui.onAllNodesWithText("还没有已完成的任务。").fetchSemanticsNodes().isNotEmpty() }
+        ui.onNodeWithText("今天").performClick()
+        ui.waitUntil(8_000) { ui.onAllNodesWithText("滑动处理的任务").fetchSemanticsNodes().isNotEmpty() }
+        swipeRow("滑动处理的任务", left = true)
+        ui.waitUntil(8_000) { ui.onAllNodesWithText("滑动处理的任务").fetchSemanticsNodes().isEmpty() }
+        val repo = (ui.activity.application as TodoApplication).repository
+        Assert.assertEquals(java.time.LocalDate.now().plusDays(1).toString(), runBlocking { repo.dao.tasks().single() }.scheduleDate)
+        ui.onNodeWithText("之后").performClick()
+        ui.onNodeWithText("滑动处理的任务").assertIsDisplayed()
+    }
+    @Test fun swipeActionsConfigurable() {
+        try {
+            add("手势配置验证")
+            ui.onNodeWithContentDescription("设置").performClick()
+            // 第一个「关闭」chip 属于右滑分区：关闭后右滑不应再完成任务。
+            ui.onAllNodesWithText("关闭")[0].performScrollTo().performClick()
+            ui.onNodeWithText("今天").performClick()
+            swipeRow("手势配置验证", left = false)
+            Thread.sleep(600)
+            ui.onNodeWithText("手势配置验证").assertIsDisplayed()
+            ui.onNodeWithText("今天完成 1 项").assertDoesNotExist()
+            // 左滑分区改选「完成或恢复」（右滑分区已含一个，故取第二个）。
+            ui.onNodeWithContentDescription("设置").performClick()
+            ui.onAllNodesWithText("完成或恢复")[1].performScrollTo().performClick()
+            ui.onNodeWithText("今天").performClick()
+            swipeRow("手势配置验证", left = true)
+            ui.waitUntil(8_000) { ui.onAllNodesWithText("今天完成 1 项").fetchSemanticsNodes().isNotEmpty() }
+        } finally {
+            // Leave test settings as they were for repeatability.
+            ui.onNodeWithContentDescription("设置").performClick()
+            ui.onAllNodesWithText("完成或恢复")[0].performScrollTo().performClick()
+            ui.onAllNodesWithText("安排到明天")[1].performScrollTo().performClick()
+        }
+    }
+    private fun swipeRow(title: String, left: Boolean) {
+        ui.onNodeWithText(title).performTouchInput {
+            // Swipe well past the row's own width so the 50% positional threshold is crossed on any screen size.
+            if (left) swipe(Offset(visibleSize.width.toFloat() - 10f, center.y), Offset(-600f, center.y), 300)
+            else swipe(Offset(10f, center.y), Offset(visibleSize.width.toFloat() + 600f, center.y), 300)
+        }
+    }
+
     @Test fun draftSurvivesRotationAndLargeTextKeepsSaveReachable() {
         val automation = InstrumentationRegistry.getInstrumentation().uiAutomation
         fun shell(command: String) { automation.executeShellCommand(command).use { descriptor -> java.io.FileInputStream(descriptor.fileDescriptor).use { it.readBytes() } } }
@@ -181,7 +235,7 @@ class WorkflowTest {
             ui.onNodeWithText("标题").performTextInput("大字体下保存一条较长的待办任务")
             ui.activityRule.scenario.recreate()
             ui.onNodeWithText("大字体下保存一条较长的待办任务").assertExists()
-            ui.onNodeWithText("保存").performScrollTo().assertIsDisplayed()
+            ui.onNodeWithText("保存").assertIsDisplayed()
             screenshot("08-editor-200-percent")
             ui.onNodeWithText("保存").performClick()
             ui.waitUntil(8_000) { ui.onAllNodesWithText("标题").fetchSemanticsNodes().isEmpty() }

@@ -1,19 +1,24 @@
-"""Original short glass/pluck cue; no external samples. Rebuild with Python 3."""
+"""Soft bell 'done' cue; no external samples. Rebuild with Python 3."""
 import math
 import struct
 import wave
 from pathlib import Path
 
 rate = 48000
-duration = 0.165
+duration = 0.22
 samples = []
 for i in range(round(rate * duration)):
     t = i / rate
-    attack = min(1.0, t / 0.0008)
-    tail = min(1.0, (duration - t) / 0.012)
-    # Bright fundamental with quickly decaying, slightly inharmonic glass partials.
+    attack = min(1.0, t / 0.0006)
+    tail = min(1.0, (duration - t) / 0.03)
+    # Warm struck-bell partials: a low fundamental with soft, quickly-decaying overtones.
     value = sum(amplitude * math.exp(-t / decay) * math.sin(2 * math.pi * frequency * t)
-                for frequency, amplitude, decay in [(2349, 1, .036), (4757, .36, .019), (7105, .12, .009)])
+                for frequency, amplitude, decay in [
+                    (880.0, 1.00, 0.090),
+                    (1320.0, 0.42, 0.055),
+                    (1760.0, 0.18, 0.035),
+                    (2640.0, 0.08, 0.020),
+                ])
     samples.append(value * attack * tail)
 peak = max(map(abs, samples))
 path = Path(__file__).resolve().parents[1] / 'app/src/main/res/raw/complete.wav'

@@ -8,17 +8,19 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.view.HapticFeedbackConstants
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.*
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -33,11 +35,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.*
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,29 +55,66 @@ import java.time.format.DateTimeFormatter
 
 class MainActivity : ComponentActivity() {
     private val requestedTask = mutableStateOf<String?>(null)
+    private val sharedText = mutableStateOf<String?>(null)
+    private val newTaskRequests = mutableIntStateOf(0)
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState); enableEdgeToEdge(); requestedTask.value = intent.getStringExtra("taskId")
-        setContent { TodoApp(requestedTask.value) { requestedTask.value = null; intent.removeExtra("taskId") } }
+        super.onCreate(savedInstanceState); enableEdgeToEdge(); handleIntent(intent)
+        setContent {
+            TodoApp(requestedTask.value, sharedText.value, newTaskRequests.intValue,
+                consumed = { requestedTask.value = null; intent.removeExtra("taskId") },
+                sharedConsumed = { sharedText.value = null })
+        }
     }
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); requestedTask.value = intent.getStringExtra("taskId") }
+    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); handleIntent(intent) }
+    private fun handleIntent(intent: Intent) {
+        when (intent.action) {
+            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)?.takeIf { it.isNotBlank() }?.let { sharedText.value = it }
+            ACTION_NEW_TASK -> newTaskRequests.intValue++
+            else -> requestedTask.value = intent.getStringExtra("taskId")
+        }
+    }
+    companion object { const val ACTION_NEW_TASK = "app.todo.local.action.NEW_TASK" }
 }
 
 private val light = lightColorScheme(
-    primary = Color(0xFF405E75), onPrimary = Color.White, primaryContainer = Color(0xFFDCE6ED), onPrimaryContainer = Color(0xFF203A4D),
-    secondary = Color(0xFF405E75), secondaryContainer = Color(0xFFE2EAF0), onSecondaryContainer = Color(0xFF203A4D),
-    background = Color(0xFFFAFAF8), onBackground = Color(0xFF202124), surface = Color(0xFFFAFAF8), onSurface = Color(0xFF202124),
-    onSurfaceVariant = Color(0xFF596169), surfaceContainer = Color(0xFFF0F1ED), surfaceContainerLow = Color(0xFFF5F6F3), surfaceContainerLowest = Color.White, surfaceContainerHigh = Color(0xFFECEEEB), surfaceContainerHighest = Color(0xFFE2E6E5), surfaceTint = Color(0xFF405E75), outline = Color(0xFF747D84),
-    outlineVariant = Color(0xFFD5DAD9), inverseSurface = Color(0xFF202528), inverseOnSurface = Color(0xFFECEEED), inversePrimary = Color(0xFFB3CBDC))
+    primary = Color(0xFF202020), onPrimary = Color.White, primaryContainer = Color(0xFFE8E8E8), onPrimaryContainer = Color(0xFF202020), inversePrimary = Color(0xFFE8E8E8),
+    secondary = Color(0xFF5C5C5C), onSecondary = Color.White, secondaryContainer = Color(0xFFEDEDED), onSecondaryContainer = Color(0xFF292929),
+    tertiary = Color(0xFF606060), onTertiary = Color.White, tertiaryContainer = Color(0xFFEAEAEA), onTertiaryContainer = Color(0xFF252525),
+    background = Color(0xFFFAFAFA), onBackground = Color(0xFF1A1A1A), surface = Color(0xFFFAFAFA), onSurface = Color(0xFF1A1A1A),
+    surfaceVariant = Color(0xFFE5E5E5), onSurfaceVariant = Color(0xFF626262),
+    surfaceContainerLowest = Color.White, surfaceContainerLow = Color(0xFFF5F5F5), surfaceContainer = Color(0xFFF0F0F0), surfaceContainerHigh = Color(0xFFE9E9E9), surfaceContainerHighest = Color(0xFFE2E2E2),
+    surfaceDim = Color(0xFFD6D6D6), surfaceBright = Color.White, surfaceTint = Color(0xFF202020),
+    inverseSurface = Color(0xFF252525), inverseOnSurface = Color(0xFFF5F5F5),
+    error = Color(0xFFA94442), onError = Color.White, errorContainer = Color(0xFFFFDAD6), onErrorContainer = Color(0xFF410002),
+    outline = Color(0xFF858585), outlineVariant = Color(0xFFE0E0E0), scrim = Color.Black)
 private val dark = darkColorScheme(
-    primary = Color(0xFFB3CBDC), onPrimary = Color(0xFF203A4D), primaryContainer = Color(0xFF30434F), onPrimaryContainer = Color(0xFFECEEED),
-    secondary = Color(0xFFB3CBDC), secondaryContainer = Color(0xFF30434F), onSecondaryContainer = Color(0xFFECEEED),
-    background = Color(0xFF141617), onBackground = Color(0xFFECEEED), surface = Color(0xFF141617), onSurface = Color(0xFFECEEED),
-    onSurfaceVariant = Color(0xFFC2C8CB), surfaceContainer = Color(0xFF202528), surfaceContainerLow = Color(0xFF191D1F), surfaceContainerLowest = Color(0xFF101213), surfaceContainerHigh = Color(0xFF292F32), surfaceContainerHighest = Color(0xFF333A3E), surfaceTint = Color(0xFFB3CBDC), outline = Color(0xFF8B949A),
-    outlineVariant = Color(0xFF454D52), inverseSurface = Color(0xFFECEEED), inverseOnSurface = Color(0xFF202124), inversePrimary = Color(0xFF405E75))
+    primary = Color(0xFFE8E8E8), onPrimary = Color(0xFF181818), primaryContainer = Color(0xFF303030), onPrimaryContainer = Color(0xFFFAFAFA), inversePrimary = Color(0xFF202020),
+    secondary = Color(0xFFBDBDBD), onSecondary = Color(0xFF242424), secondaryContainer = Color(0xFF333333), onSecondaryContainer = Color(0xFFE5E5E5),
+    tertiary = Color(0xFFC6C6C6), onTertiary = Color(0xFF262626), tertiaryContainer = Color(0xFF353535), onTertiaryContainer = Color(0xFFEAEAEA),
+    background = Color(0xFF141414), onBackground = Color(0xFFEDEDED), surface = Color(0xFF141414), onSurface = Color(0xFFEDEDED),
+    surfaceVariant = Color(0xFF393939), onSurfaceVariant = Color(0xFFB5B5B5),
+    surfaceContainerLowest = Color(0xFF1C1C1C), surfaceContainerLow = Color(0xFF222222), surfaceContainer = Color(0xFF282828), surfaceContainerHigh = Color(0xFF303030), surfaceContainerHighest = Color(0xFF393939),
+    surfaceDim = Color(0xFF141414), surfaceBright = Color(0xFF3D3D3D), surfaceTint = Color(0xFFE8E8E8),
+    inverseSurface = Color(0xFFEDEDED), inverseOnSurface = Color(0xFF252525),
+    error = Color(0xFFFFB4AB), onError = Color(0xFF690005), errorContainer = Color(0xFF93000A), onErrorContainer = Color(0xFFFFDAD6),
+    outline = Color(0xFF909090), outlineVariant = Color(0xFF3D3D3D), scrim = Color.Black)
+private val TodoTypography = Typography(
+    titleLarge = TextStyle(fontSize = 24.sp, fontWeight = FontWeight.SemiBold, lineHeight = 30.sp),
+    titleMedium = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Medium, lineHeight = 22.sp),
+    titleSmall = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, lineHeight = 20.sp),
+    bodyLarge = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Normal, lineHeight = 22.sp),
+    bodyMedium = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Normal, lineHeight = 20.sp),
+    bodySmall = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Normal, lineHeight = 18.sp),
+    labelLarge = TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Medium, lineHeight = 18.sp),
+    labelMedium = TextStyle(fontSize = 12.sp, fontWeight = FontWeight.Medium, lineHeight = 16.sp),
+    labelSmall = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Medium, lineHeight = 16.sp))
+private val TodoShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp), small = RoundedCornerShape(8.dp), medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp), extraLarge = RoundedCornerShape(24.dp))
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
+fun TodoApp(requestedTask: String? = null, sharedText: String? = null, newTaskRequest: Int = 0, consumed: () -> Unit = {}, sharedConsumed: () -> Unit = {}) {
     val vm: TodoViewModel = viewModel()
     val context = LocalContext.current
     val compactHeight = LocalConfiguration.current.screenHeightDp < 480
@@ -85,6 +124,8 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
     var lockTitle by remember { mutableStateOf(settings.getBoolean("lock_title", false)) }
     var haptics by remember { mutableStateOf(settings.getBoolean("completion_haptics", true)) }
     var sound by remember { mutableStateOf(settings.getBoolean("completion_sound", true)) }
+    var swipeRight by remember { mutableStateOf(settings.getString("swipe_right", "完成或恢复")!!) }
+    var swipeLeft by remember { mutableStateOf(settings.getString("swipe_left", "安排到明天")!!) }
     val feedback = remember(context) { CompletionFeedback(context) }
     val feedbackView = LocalView.current
     val currentHaptics by rememberUpdatedState(haptics)
@@ -100,14 +141,17 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
     val window = (context as? android.app.Activity)?.window
     SideEffect { window?.let { androidx.core.view.WindowCompat.getInsetsController(it, it.decorView).apply { isAppearanceLightStatusBars = !isDark; isAppearanceLightNavigationBars = !isDark } } }
     CompositionLocalProvider(LocalReducedMotion provides reducedMotion) {
-    MaterialTheme(colorScheme = if (isDark) dark else light, typography = Typography(titleLarge = androidx.compose.ui.text.TextStyle(fontSize = 26.sp, fontWeight = FontWeight.SemiBold))) {
+    MaterialTheme(colorScheme = if (isDark) dark else light, typography = TodoTypography, shapes = TodoShapes) {
         val storedTasks by vm.tasks.collectAsState(); val tags by vm.tags.collectAsState()
         val presentation = rememberTaskPresentation(storedTasks, reducedMotion)
         val tasks = presentation.tasks
         val loaded by vm.loaded.collectAsState(); val error by vm.readError.collectAsState(); val busy by vm.busy.collectAsState(); val draft by vm.editor.collectAsState()
         var page by rememberSaveable { mutableStateOf("今天") }
-        var expandedTag by rememberSaveable { mutableStateOf<String?>(null) }
-        var query by rememberSaveable { mutableStateOf("") }; var includeCompleted by rememberSaveable { mutableStateOf(false) }
+        var listTab by rememberSaveable { mutableStateOf("全部") }
+        var selectedTag by rememberSaveable { mutableStateOf<String?>(null) }
+        var listQuery by rememberSaveable { mutableStateOf("") }
+        // A selected tag may be deleted (or merged on rename); drop the filter instead of sticking on a missing id.
+        LaunchedEffect(tags, selectedTag) { if (selectedTag != null && selectedTag != "none" && tags.none { it.id == selectedTag }) selectedTag = null }
         var now by remember { mutableStateOf(LocalDateTime.now()) }; var statusTick by remember { mutableIntStateOf(0) }
         val lifecycle = LocalLifecycleOwner.current
         DisposableEffect(lifecycle) {
@@ -131,37 +175,37 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
         val snack = remember { SnackbarHostState() }
         LaunchedEffect(Unit) { vm.messages.collectLatest { (message, undo) -> if (snack.showSnackbar(message, if (undo != null) "撤销" else null, withDismissAction = true) == SnackbarResult.ActionPerformed && undo != null) vm.perform(block = { vm.repo.complete(undo, false) }) } }
         var tagDialog by remember { mutableStateOf<Tag?>(null) }; var creatingTag by remember { mutableStateOf(false) }
+        var tagMenu by remember { mutableStateOf(false) }
         var hiddenToday by remember { mutableStateOf(settings.getString("hidden_today", null)) }
         val todayHidden = hiddenToday == now.toLocalDate().toString()
         fun finishToday() { hiddenToday = now.toLocalDate().toString(); settings.edit().putString("hidden_today", hiddenToday).apply() }
         fun reopenToday() { hiddenToday = null; settings.edit().remove("hidden_today").apply() }
-        var exportConfirm by remember { mutableStateOf(false) }; var importBackup by remember { mutableStateOf<Backup?>(null) }
-        val scope = rememberCoroutineScope()
-        val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
-            if (uri != null) scope.launch { try { withContext(Dispatchers.IO) { val text = BackupCodec.encode(BackupCodec.snapshot(vm.repo)); context.contentResolver.openOutputStream(uri, "wt")!!.bufferedWriter().use { it.write(text) } }; vm.message("备份已导出") } catch (_: Exception) { vm.message("导出失败，请重新选择文件位置") } }
+        val primary = page in listOf("今天", "收件箱", "清单")
+        BackHandler(!primary && draft == null) { page = "今天" }
+        fun add() { vm.draft(EditorDraft(Task(scheduleDate = if (page == "今天") now.toLocalDate().toString() else null), if (page == "清单" && selectedTag != null && selectedTag != "none") tags.filter { it.id == selectedTag }.map { it.name } else emptyList(), null, true)) }
+        // Launcher shortcut ("新建任务"): reuse add() so the draft matches the current page; never clobber an open draft.
+        LaunchedEffect(newTaskRequest) { if (newTaskRequest > 0 && draft == null) add() }
+        // System share sheet: first line becomes the title, the rest becomes the note; never clobber an open draft.
+        LaunchedEffect(sharedText, loaded) {
+            val text = sharedText ?: return@LaunchedEffect
+            if (!loaded || draft != null) return@LaunchedEffect
+            val lines = text.trim().lines()
+            vm.draft(EditorDraft(Task(title = lines.first().take(300), note = lines.drop(1).joinToString("\n").trim().take(5000)), emptyList(), null, true))
+            sharedConsumed()
         }
-        val import = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-            if (uri != null) scope.launch { try { importBackup = withContext(Dispatchers.IO) { context.contentResolver.openInputStream(uri)!!.bufferedReader().use { reader ->
-                val buffer = CharArray(8192); val text = StringBuilder(); while (true) { val n = reader.read(buffer); if (n < 0) break; require(text.length + n <= 30_000_000); text.append(buffer, 0, n) }; BackupCodec.decode(text.toString()) } }
-            } catch (_: Exception) { vm.message("无法恢复：备份损坏、引用不完整或版本不兼容；现有数据未改变") } }
-        }
-        val primary = page in listOf("今天", "收件箱", "标签", "已完成")
-        BackHandler(!primary && draft == null) { page = if (page.startsWith("tag:") || page in listOf("全部待办", "无标签")) "标签" else "今天" }
-        fun add() { vm.draft(EditorDraft(Task(scheduleDate = if (page == "今天") now.toLocalDate().toString() else null), if (page == "标签") tags.filter { it.id == expandedTag }.map { it.name } else emptyList(), null, true)) }
-        val title = if (page.startsWith("tag:")) tags.firstOrNull { it.id == page.removePrefix("tag:") }?.name ?: "标签" else page
+        val title = page
         Scaffold(
             snackbarHost = { SnackbarHost(snack) },
             topBar = { Column(Modifier.statusBarsPadding().padding(horizontal = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (!primary) IconButton(onClick = { page = if (page.startsWith("tag:")) "标签" else "今天" }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") }
-                    if (page == "搜索") {
-                        OutlinedTextField(query, { query = it }, placeholder = { Text("搜索标题、备注或标签") }, singleLine = true,
-                            shape = RoundedCornerShape(20.dp), modifier = Modifier.weight(1f).padding(vertical = 8.dp),
-                            leadingIcon = { Icon(Icons.Outlined.Search, null) },
-                            trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Outlined.Close, "清空搜索") } })
-                    } else {
-                        Text(title, Modifier.weight(1f).padding(start = 8.dp, top = 12.dp, bottom = 8.dp), style = MaterialTheme.typography.titleLarge)
-                        IconButton(onClick = { page = "搜索" }) { Icon(Icons.Outlined.Search, "搜索") }
+                    if (!primary) IconButton(onClick = { page = "今天" }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") }
+                    Text(title, Modifier.weight(1f).padding(start = 8.dp, top = 12.dp, bottom = 8.dp), style = MaterialTheme.typography.titleLarge)
+                    if (page == "清单") Box {
+                        IconButton(onClick = { tagMenu = true }) { Icon(Icons.Outlined.MoreHoriz, "管理标签") }
+                        DropdownMenu(expanded = tagMenu, onDismissRequest = { tagMenu = false }) {
+                            if (tags.isEmpty()) DropdownMenuItem(text = { Text("还没有标签") }, enabled = false, onClick = {})
+                            tags.forEach { tag -> DropdownMenuItem(text = { Text(tag.name) }, onClick = { tagMenu = false; tagDialog = tag }) }
+                        }
                     }
                     if (page != "设置") IconButton(onClick = { page = "设置" }) { Icon(Icons.Outlined.Settings, "设置") }
                 }
@@ -173,60 +217,60 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
 
                 }
             } },
-            bottomBar = { NavigationBar { listOf("今天" to Icons.Outlined.WbSunny, "收件箱" to Icons.Outlined.Inbox, "标签" to Icons.Outlined.Label, "已完成" to Icons.Outlined.DoneAll).forEach { (name, icon) ->
-                NavigationBarItem(selected = page == name || name == "标签" && (page.startsWith("tag:") || page == "全部待办" || page == "无标签"), onClick = { page = name }, icon = { Icon(icon, null) }, label = { Text(name) })
+            bottomBar = { NavigationBar { listOf("今天" to Icons.Outlined.WbSunny, "收件箱" to Icons.Outlined.Inbox, "清单" to Icons.Outlined.Checklist).forEach { (name, icon) ->
+                NavigationBarItem(selected = page == name, onClick = { page = name }, icon = { Icon(icon, null) }, label = { Text(name) })
             } } },
-            floatingActionButton = { if (page !in listOf("设置", "搜索", "已完成") && !(page == "今天" && todayHidden) && loaded && !error) FloatingActionButton(onClick = { add() }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = RoundedCornerShape(16.dp)) { Icon(Icons.Outlined.Add, "添加任务") } }
+            floatingActionButton = { if (page != "设置" && !(page == "清单" && listTab == "已完成") && !(page == "今天" && todayHidden) && loaded && !error) FloatingActionButton(onClick = { add() }, containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shape = RoundedCornerShape(12.dp)) { Icon(Icons.Outlined.Add, "添加任务") } }
         ) { padding ->
             val body = Modifier.padding(padding).fillMaxSize()
             if (error) Column(body.padding(24.dp)) { Text("无法读取本地数据库，数据未被清除。"); Button(onClick = { vm.observe() }) { Text("重试") } }
             else if (!loaded) Box(body, contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            else if (page == "设置") SettingsPage(body, appearance, { appearance = it; settings.edit().putString("appearance", it).apply() }, reduce, { reduce = it; settings.edit().putBoolean("reduce", it).apply() }, lockTitle, { lockTitle = it; settings.edit().putBoolean("lock_title", it).apply() }, vm, statusTick, { exportConfirm = true }, { import.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, haptics, { haptics = it; settings.edit().putBoolean("completion_haptics", it).apply() }, sound, { sound = it; settings.edit().putBoolean("completion_sound", it).apply() })
+            else if (page == "设置") SettingsPage(body, appearance, { appearance = it; settings.edit().putString("appearance", it).apply() }, reduce, { reduce = it; settings.edit().putBoolean("reduce", it).apply() }, lockTitle, { lockTitle = it; settings.edit().putBoolean("lock_title", it).apply() }, vm, statusTick, haptics, { haptics = it; settings.edit().putBoolean("completion_haptics", it).apply() }, sound, { sound = it; settings.edit().putBoolean("completion_sound", it).apply() }, swipeRight, { swipeRight = it; settings.edit().putString("swipe_right", it).apply() }, swipeLeft, { swipeLeft = it; settings.edit().putString("swipe_left", it).apply() })
             else if (page == "今天" && todayHidden) Column(body.padding(horizontal = 24.dp, vertical = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Icon(Icons.Outlined.NightsStay, null, Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
                 Text("今天已收尾", Modifier.padding(top = 16.dp), style = MaterialTheme.typography.titleMedium)
                 TextButton(onClick = { reopenToday() }, modifier = Modifier.padding(top = 12.dp)) { Text("重新展开今天") }
             }
-            else if (page == "标签") LazyColumn(body, contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 88.dp)) {
-                item { Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) { Text("按标签整理", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant); TextButton(onClick = { creatingTag = true }) { Text("新建标签") } } }
-                (listOf("all" to "全部待办", "none" to "无标签") + tags.map { it.id to it.name }).forEach { (id, name) ->
-                    val rows = tasks.filter { it.task.completedAt == null && (id == "all" || id == "none" && it.tags.isEmpty() || it.tags.any { tag -> tag.id == id }) }
-                        .sortedWith(compareBy<TaskRecord> { it.task.scheduleDate ?: "9999" }.thenBy { it.task.createdAt }.thenBy { it.task.id })
-                    item(key = "tag:$id") {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.weight(1f)) { SectionLink(name, rows.size, if (id == "all") Icons.Outlined.Checklist else Icons.Outlined.Label, expandedTag == id) { expandedTag = if (expandedTag == id) null else id } }
-                            if (id != "all" && id != "none") IconButton(onClick = { tagDialog = tags.firstOrNull { it.id == id } }) { Icon(Icons.Outlined.MoreHoriz, "管理标签 $name") }
-                        }
-                    }
-                    if (expandedTag == id) {
-                        if (rows.isEmpty()) item(key = "empty:$id") { Text("这里还没有待办", Modifier.padding(start = 40.dp, bottom = 16.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                        items(rows, key = { "tag:$id:task:${it.task.id}" }) { row ->
-                            Box(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(160), placementSpec = tween(280, easing = FastOutSlowInEasing), fadeOutSpec = tween(100))) { TaskRow(row, now, !busy, { vm.complete(row.task, true) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id]) }
-                        }
-                    }
+            else if (page == "清单") {
+                val list = remember(tasks, listTab, selectedTag, listQuery) {
+                    tasks.filter { r ->
+                        val t = r.task
+                        (if (listTab == "全部") t.completedAt == null else t.completedAt != null) &&
+                            (selectedTag == null || (selectedTag == "none" && r.tags.isEmpty()) || r.tags.any { it.id == selectedTag }) &&
+                            (listQuery.isBlank() || t.title.contains(listQuery.trim(), true) || t.note.contains(listQuery.trim(), true) || r.tags.any { it.name.contains(listQuery.trim(), true) })
+                    }.sortedWith(if (listTab == "全部") compareBy<TaskRecord> { it.task.scheduleDate ?: "9999" }.thenBy { it.task.createdAt }.thenBy { it.task.id } else compareByDescending<TaskRecord> { it.task.completedAt }.thenBy { it.task.id })
                 }
-                if (tags.isEmpty()) item { Text("用标签，把相关的事情放在一起。", Modifier.padding(vertical = 24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                LazyColumn(body, contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 88.dp)) {
+                    item { OutlinedTextField(listQuery, { listQuery = it }, placeholder = { Text("搜索标题、备注或标签") }, singleLine = true, shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth().padding(top = 4.dp), leadingIcon = { Icon(Icons.Outlined.Search, null) }, trailingIcon = { if (listQuery.isNotEmpty()) IconButton(onClick = { listQuery = "" }) { Icon(Icons.Outlined.Close, "清空搜索") } }) }
+                    item { TabRow(selectedTabIndex = if (listTab == "全部") 0 else 1, modifier = Modifier.padding(top = 8.dp)) { Tab(selected = listTab == "全部", onClick = { listTab = "全部" }, text = { Text("全部") }); Tab(selected = listTab == "已完成", onClick = { listTab = "已完成" }, text = { Text("已完成") }) } }
+                    item { Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        tags.forEach { tag -> FilterChip(selected = selectedTag == tag.id, onClick = { selectedTag = if (selectedTag == tag.id) null else tag.id }, label = { Text(tag.name) }) }
+                        FilterChip(selected = selectedTag == "none", onClick = { selectedTag = if (selectedTag == "none") null else "none" }, label = { Text("无标签") })
+                        AssistChip(onClick = { creatingTag = true }, label = { Text("新建标签") }, leadingIcon = { Icon(Icons.Outlined.Add, null, Modifier.size(16.dp)) })
+                    } }
+                    if (list.isEmpty()) item { Column(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 16.dp).background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(16.dp)).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Outlined.Checklist, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                        Text(when { listQuery.isNotBlank() -> "没有找到相关任务"; listTab == "已完成" -> "还没有已完成的任务。"; selectedTag == "none" -> "还没有无标签的任务。"; selectedTag != null -> "这个标签下还没有待办。"; else -> "还没有待办。" }, Modifier.padding(top = 12.dp))
+                    } }
+                    items(list, key = { it.task.id }) { row -> Column(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(160), placementSpec = tween(280, easing = FastOutSlowInEasing), fadeOutSpec = tween(100))) { SwipeableTaskRow(row, now, !busy, { vm.complete(row.task, row.task.completedAt == null) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id], reschedule = { vm.scheduleTomorrow(row) }, startAction = swipeRight, endAction = swipeLeft) } }
+                }
             } else {
-                val filtered = remember(tasks, page, query, includeCompleted, now) {
+                val filtered = remember(tasks, page, now) {
                     val list = tasks.filter { r -> val t = r.task; when {
-                        page == "已完成" -> t.completedAt != null
-                        page == "搜索" -> query.isNotBlank() && (includeCompleted || t.completedAt == null) && (t.title.contains(query.trim(), true) || t.note.contains(query.trim(), true) || r.tags.any { it.name.contains(query.trim(), true) })
                         t.completedAt != null -> false
                         page == "今天" -> Rules.today(t, now.toLocalDate())
-                        page == "收件箱" -> t.scheduleDate == null
+                        page == "收件箱" -> t.scheduleDate == null && r.tags.isEmpty()
                         page == "之后" -> !Rules.today(t, now.toLocalDate()) && Rules.futureDate(t, now.toLocalDate()) != null
-                        page == "无标签" -> r.tags.isEmpty()
-                        page.startsWith("tag:") -> r.tags.any { it.id == page.removePrefix("tag:") }
                         else -> true
                     } }
-                    when (page) { "今天" -> list.sortedWith(Rules.todaySort(now)); "收件箱", "搜索" -> list.sortedWith(compareByDescending<TaskRecord> { it.task.createdAt }.thenBy { it.task.id }); "已完成" -> list.sortedByDescending { it.task.completedAt }; "之后" -> list.sortedWith(compareBy<TaskRecord> { Rules.futureDate(it.task, now.toLocalDate()) }.thenBy { it.task.createdAt }.thenBy { it.task.id }); else -> list.sortedWith(compareBy<TaskRecord> { it.task.scheduleDate ?: "9999" }.thenBy { it.task.createdAt }.thenBy { it.task.id }) }
+                    when (page) { "今天" -> list.sortedWith(Rules.todaySort(now)); "收件箱" -> list.sortedWith(compareByDescending<TaskRecord> { it.task.createdAt }.thenBy { it.task.id }); "之后" -> list.sortedWith(compareBy<TaskRecord> { Rules.futureDate(it.task, now.toLocalDate()) }.thenBy { it.task.createdAt }.thenBy { it.task.id }); else -> list }
                 }
                 var completedOpen by rememberSaveable { mutableStateOf(false) }
                 var inboxHint by remember { mutableStateOf(!settings.getBoolean("inbox_hint_dismissed", false)) }
                 val listStates = rememberSaveableStateHolder()
                 // Build groups in the same composition as filtering. Lazy content can outlive
                 // a navigation change; it must never regroup old rows using the new page.
-                val groups = filtered.groupBy { when (page) { "今天" -> Rules.group(it.task, now); "之后" -> Rules.futureDate(it.task, now.toLocalDate()).orEmpty(); "已完成" -> it.task.completedOn.orEmpty(); else -> "" } }
+                val groups = filtered.groupBy { when (page) { "今天" -> Rules.group(it.task, now); "之后" -> Rules.futureDate(it.task, now.toLocalDate()).orEmpty(); else -> "" } }
                 listStates.SaveableStateProvider(page) { LazyColumn(body, contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 88.dp)) {
                     if (page == "今天" && compactHeight) item {
                         Text(now.format(DateTimeFormatter.ofPattern("M月d日 EEEE", java.util.Locale.CHINA)), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -236,32 +280,25 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
                             TextButton(onClick = { page = "之后" }) { Text("之后"); Icon(Icons.Outlined.ChevronRight, null) }
                         }
                     }
-                    if (page == "搜索") item {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChip(!includeCompleted, { includeCompleted = false }, label = { Text("待办") })
-                            FilterChip(includeCompleted, { includeCompleted = true }, label = { Text("包含已完成") })
-                            Spacer(Modifier.weight(1f))
-                            if (query.isNotBlank()) Text("${filtered.size} 项结果", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        if (query.isBlank() && tags.isNotEmpty()) {
-                            Text("按标签查找", style = MaterialTheme.typography.labelLarge)
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { tags.take(8).forEach { tag -> AssistChip(onClick = { query = tag.name }, label = { Text("#${tag.name}") }) } }
-                        }
-                    }
                     if (page == "收件箱" && inboxHint) item { Row(verticalAlignment = Alignment.CenterVertically) { Text("还没决定哪天做的事，先放这里。", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant); IconButton(onClick = { inboxHint = false; settings.edit().putBoolean("inbox_hint_dismissed", true).apply() }) { Icon(Icons.Outlined.Close, "关闭说明") } } }
-                    if (filtered.isEmpty()) item { Column(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 16.dp).background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(20.dp)).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(if (page == "收件箱") Icons.Outlined.Inbox else Icons.Outlined.Checklist, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
-                        Text(when (page) { "今天" -> "今天没有安排。"; "收件箱" -> "暂时没有未安排的任务。"; "搜索" -> if (query.isBlank()) "从一个关键词开始" else "没有找到相关任务"; "已完成" -> "还没有已完成的任务。"; "之后" -> "暂时没有未来安排。"; else -> "这里还没有任务。" }, Modifier.padding(top = 12.dp))
-                        if (page == "今天") { TextButton(onClick = { add() }) { Text("添加任务") }; TextButton(onClick = { page = "收件箱" }) { Text("查看收件箱") } }
+                    if (filtered.isEmpty()) item {
+                        // An emptied Today after finishing work is a win, not a blank list; acknowledge it and lead to 结束一天 below.
+                        val doneToday = tasks.count { it.task.completedOn == now.toLocalDate().toString() }
+                        val celebrated = page == "今天" && doneToday > 0
+                        Column(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 16.dp).background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(16.dp)).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(when { page == "收件箱" -> Icons.Outlined.Inbox; celebrated -> Icons.Outlined.Celebration; else -> Icons.Outlined.Checklist }, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
+                        Text(when { celebrated -> "今天的都完成了。"; page == "今天" -> "今天没有安排。"; page == "收件箱" -> "还没有未安排且未打标签的事。"; page == "之后" -> "暂时没有未来安排。"; else -> "这里还没有任务。" }, Modifier.padding(top = 12.dp))
+                        if (celebrated) Text("剩下的时间归你。", Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (page == "今天" && !celebrated) { TextButton(onClick = { add() }) { Text("添加任务") }; TextButton(onClick = { page = "收件箱" }) { Text("查看收件箱") } }
                     } }
                     groups.forEach { (group, rows) ->
                         if (group.isNotEmpty() && !(page == "今天" && groups.size == 1 && group == "今天")) item(key = "group:$group") { Text(group, Modifier.padding(top = 20.dp, bottom = 8.dp), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (group == "已过截止") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
-                        items(rows, key = { it.task.id }) { row -> Column(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(160), placementSpec = tween(280, easing = FastOutSlowInEasing), fadeOutSpec = tween(100))) { TaskRow(row, now, !busy, { vm.complete(row.task, row.task.completedAt == null) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id]) } }
+                        items(rows, key = { it.task.id }) { row -> Column(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(160), placementSpec = tween(280, easing = FastOutSlowInEasing), fadeOutSpec = tween(100))) { SwipeableTaskRow(row, now, !busy, { vm.complete(row.task, row.task.completedAt == null) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id], reschedule = { vm.scheduleTomorrow(row) }, startAction = swipeRight, endAction = swipeLeft) } }
                     }
                     if (page == "今天") {
                         val completed = tasks.filter { it.task.completedOn == now.toLocalDate().toString() }.sortedByDescending { it.task.completedAt }
                         if (completed.isNotEmpty()) item { TextButton(onClick = { completedOpen = !completedOpen }, modifier = Modifier.padding(top = 12.dp)) { Icon(if (completedOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null); Text("今天完成 ${completed.size} 项") } }
-                        if (completedOpen) items(completed, key = { "completed:${it.task.id}" }) { row -> TaskRow(row, now, !busy, { vm.complete(row.task, false) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id]) }
+                        if (completedOpen) items(completed, key = { "completed:${it.task.id}" }) { row -> SwipeableTaskRow(row, now, !busy, { vm.complete(row.task, false) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id], reschedule = { vm.scheduleTomorrow(row) }, startAction = swipeRight, endAction = swipeLeft) }
                         item { TextButton(onClick = { finishToday() }, modifier = Modifier.padding(top = 12.dp)) { Icon(Icons.Outlined.NightsStay, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("结束一天") } }
                     }
                 } }
@@ -269,15 +306,10 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
         }
         if (draft != null) EditorSheet(draft!!, tags, busy, vm)
         if (creatingTag || tagDialog != null) TagDialog(tagDialog, { creatingTag = false; tagDialog = null }, vm)
-        if (exportConfirm) AlertDialog(onDismissRequest = { exportConfirm = false }, title = { Text("导出本地备份") }, text = { Text("备份是明文文件，包含任务与备注。请选择安全的位置并自行保管。") }, confirmButton = { TextButton(onClick = { exportConfirm = false; export.launch("todo-${now.toLocalDate()}.json") }) { Text("选择保存位置") } }, dismissButton = { TextButton(onClick = { exportConfirm = false }) { Text("取消") } })
-        importBackup?.let { backup -> AlertDialog(onDismissRequest = { importBackup = null }, title = { Text("替换全部本地数据？") }, text = { Text("已校验备份：${backup.tasks.size} 项任务，${backup.tags.size} 个标签。恢复将覆盖当前全部任务与收尾记录，无法撤销。") }, confirmButton = { TextButton(enabled = !busy, onClick = { vm.perform("备份已恢复", { BackupCodec.restore(vm.repo, backup); vm.scheduler.cancelAll() }, { vm.draft(null); importBackup = null }) }) { Text("确认覆盖") } }, dismissButton = { TextButton(onClick = { importBackup = null }) { Text("取消") } }) }
     }
     }
 }
 
-@Composable private fun SectionLink(name: String, count: Int, icon: ImageVector, expanded: Boolean, click: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = click).semantics { stateDescription = if (expanded) "已展开" else "已收起" }, verticalAlignment = Alignment.CenterVertically) { Icon(icon, null, tint = MaterialTheme.colorScheme.primary); Text(name, Modifier.weight(1f).padding(horizontal = 12.dp)); Text(count.toString(), color = MaterialTheme.colorScheme.onSurfaceVariant); Icon(if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null, Modifier.padding(start = 8.dp)) }
-}
 @OptIn(ExperimentalLayoutApi::class)
 @Composable fun TaskRow(record: TaskRecord, now: LocalDateTime, enabled: Boolean, complete: () -> Unit, edit: () -> Unit, completionTarget: Boolean? = null) {
     val t = record.task
@@ -285,10 +317,10 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
     val reduced = LocalReducedMotion.current
     val opacity by animateFloatAsState(if (completionTarget == true) .45f else 1f, tween(if (reduced) 0 else 160), label = "completion fade")
     val scale by animateFloatAsState(if (completionTarget == true) .94f else 1f, tween(if (reduced) 0 else 120, easing = FastOutSlowInEasing), label = "check settle")
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).graphicsLayer { alpha = opacity }, verticalAlignment = Alignment.Top) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 72.dp).graphicsLayer { alpha = opacity }, verticalAlignment = Alignment.Top) {
         Checkbox(checked, { complete() }, enabled = enabled && completionTarget == null,
-            modifier = Modifier.padding(top = 4.dp).graphicsLayer { scaleX = scale; scaleY = scale }.semantics { contentDescription = if (t.completedAt == null) "完成 ${t.title}" else "恢复 ${t.title}" })
-        Column(Modifier.weight(1f).clickable(enabled = completionTarget == null, onClick = edit).padding(top = 12.dp, bottom = 12.dp)) {
+            modifier = Modifier.padding(top = 12.dp).graphicsLayer { scaleX = scale; scaleY = scale }.semantics { contentDescription = if (t.completedAt == null) "完成 ${t.title}" else "恢复 ${t.title}" })
+        Column(Modifier.weight(1f).clickable(enabled = completionTarget == null, onClick = edit).padding(top = 24.dp, bottom = 24.dp)) {
             Text(t.title, maxLines = 2, overflow = TextOverflow.Ellipsis, fontSize = 16.sp, textDecoration = if (checked) TextDecoration.LineThrough else null)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             if (t.dueDate != null) Meta("${if (Rules.overdue(t, now)) "已过截止 · " else ""}截止 ${dateLabel(t.dueDate, now.toLocalDate())}${t.dueTime?.let { " $it" } ?: ""}", Rules.overdue(t, now))
@@ -305,6 +337,63 @@ fun TodoApp(requestedTask: String? = null, consumed: () -> Unit = {}) {
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .22f))
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable fun SwipeableTaskRow(record: TaskRecord, now: LocalDateTime, enabled: Boolean, complete: () -> Unit, edit: () -> Unit, completionTarget: Boolean? = null, reschedule: () -> Unit, startAction: String, endAction: String) {
+    val completed = record.task.completedAt != null
+    // The dismiss state is remembered per item key while lambdas/row are recreated on every emission;
+    // without rememberUpdatedState a swipe could act on a stale revision and fail the optimistic-lock check.
+    val currentComplete by rememberUpdatedState(complete)
+    val currentReschedule by rememberUpdatedState(reschedule)
+    val currentActive by rememberUpdatedState(enabled && completionTarget == null)
+    val currentCompleted by rememberUpdatedState(completed)
+    val currentStart by rememberUpdatedState(startAction)
+    val currentEnd by rememberUpdatedState(endAction)
+    // 安排到明天 never applies to an already-completed task; 关闭 disarms the direction entirely.
+    fun actionFor(direction: SwipeToDismissBoxValue): String? = when (direction) {
+        SwipeToDismissBoxValue.StartToEnd -> currentStart
+        SwipeToDismissBoxValue.EndToStart -> currentEnd
+        else -> null
+    }?.takeUnless { it == "关闭" || (it == "安排到明天" && currentCompleted) }
+    val state = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
+        if (value == SwipeToDismissBoxValue.Settled) true else {
+            if (currentActive) when (actionFor(value)) {
+                "完成或恢复" -> currentComplete()
+                "安排到明天" -> currentReschedule()
+            }
+            false
+        }
+    })
+    val view = LocalView.current
+    // A light tick the moment the drag crosses the action threshold (progress ≈ 0.5 at the 50% positional threshold).
+    LaunchedEffect(state) {
+        var armed = false
+        snapshotFlow { state.dismissDirection.let { it != SwipeToDismissBoxValue.Settled && state.progress >= .5f && actionFor(it) != null } }.collect { isArmed ->
+            if (isArmed && !armed) view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+            armed = isArmed
+        }
+    }
+    SwipeToDismissBox(state, backgroundContent = {
+        val action = actionFor(state.dismissDirection)
+        if (action != null) {
+            val completing = action == "完成或恢复"
+            // progress ≈ 0 at rest, 0.5 at the 50% positional threshold: the badge grows and fades in as the action arms.
+            val ramp = (state.progress * 2f).coerceIn(0f, 1f)
+            Box(Modifier.fillMaxSize().clearAndSetSemantics { }, contentAlignment = if (state.dismissDirection == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd) {
+                Box(Modifier.padding(horizontal = 16.dp).size(44.dp)
+                    .graphicsLayer { alpha = ramp; val s = .5f + .5f * ramp; scaleX = s; scaleY = s }
+                    .background(if (completing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
+                    contentAlignment = Alignment.Center) {
+                    Icon(if (completing) { if (currentCompleted) Icons.AutoMirrored.Outlined.Undo else Icons.Outlined.Check } else Icons.Outlined.Event,
+                        if (completing) { if (currentCompleted) "恢复" else "完成" } else "安排到明天",
+                        Modifier.size(22.dp),
+                        tint = if (completing) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }) {
+        Box(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background)) { TaskRow(record, now, enabled, complete, edit, completionTarget) }
+    }
 }
 @Composable fun Meta(text: String, error: Boolean = false) { Text(text, Modifier.padding(top = 4.dp), fontSize = 13.sp, color = if (error) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
 fun dateLabel(date: String, today: LocalDate = LocalDate.now()) = when (date) { today.toString() -> "今天"; today.plusDays(1).toString() -> "明天"; else -> LocalDate.parse(date).format(DateTimeFormatter.ofPattern("yyyy年M月d日")) }

@@ -67,19 +67,6 @@ class RepositoryTest {
         repo.save(t.copy(scheduleDate = "2026-09-09"), emptyList(), repo.dao.reminder(t.id), false)
         val r = repo.dao.reminder(t.id)!!; assertEquals(r.generation, r.delivered)
     }
-    @Test fun damagedRestorePreservesDatabaseAndOldReminders() = runBlocking {
-        val t = add(Task(title = "保留")); val b = BackupCodec.snapshot(repo)
-        assertTrue(runCatching { BackupCodec.restore(repo, b.copy(links = listOf(TaskTag("missing", "missing")))) }.isFailure)
-        assertEquals(t, repo.dao.task(t.id))
-    }
-    @Test fun restorePastReminderMarkedDeliveredAndFutureRegenerated() = runBlocking {
-        val old = Task(title = "历史", scheduleDate = "2026-09-09", scheduleTime = "09:00")
-        val future = Task(title = "未来", scheduleDate = "2026-09-11", scheduleTime = "09:00")
-        val r1 = Reminder(old.id, "schedule"); val r2 = Reminder(future.id, "schedule")
-        BackupCodec.restore(repo, Backup(listOf(old, future), emptyList(), emptyList(), listOf(r1, r2), emptyList()))
-        val restoredOld = repo.dao.reminder(old.id)!!; val restoredFuture = repo.dao.reminder(future.id)!!
-        assertEquals(restoredOld.generation, restoredOld.delivered); assertNull(restoredFuture.delivered); assertNotEquals(r2.generation, restoredFuture.generation)
-    }
     @Test fun editingStaleTaskCannotOverwriteCompletion() = runBlocking {
         val t = add(Task(title = "待完成")); repo.complete(t.id, true)
         assertTrue(runCatching { repo.save(t.copy(title = "旧编辑"), emptyList(), null, false) }.isFailure)
