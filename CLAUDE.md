@@ -10,6 +10,8 @@ All user-facing strings, validation messages, and docs are Simplified Chinese â€
 
 ## Commands (Windows PowerShell; use `./gradlew` equivalents elsewhere)
 
+Run the `.ps1` scripts with **PowerShell 7 (`pwsh`)** â€” they are UTF-8 *without* BOM, and Windows PowerShell 5.1 (`powershell.exe`) misreads the Chinese strings and fails with parser errors.
+
 ```powershell
 .\scripts\build.ps1                  # assembleDebug + testDebugUnitTest + lintDebug
 .\scripts\build-release.ps1          # release APK/AAB + tests + lint + signature/hash verification
