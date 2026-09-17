@@ -125,7 +125,7 @@ fun TodoApp(requestedTask: String? = null, sharedText: String? = null, newTaskRe
     var haptics by remember { mutableStateOf(settings.getBoolean("completion_haptics", true)) }
     var sound by remember { mutableStateOf(settings.getBoolean("completion_sound", true)) }
     var swipeRight by remember { mutableStateOf(settings.getString("swipe_right", "完成或恢复")!!) }
-    var swipeLeft by remember { mutableStateOf(settings.getString("swipe_left", "安排到明天")!!) }
+    var swipeLeft by remember { mutableStateOf(settings.getString("swipe_left", "安排到今天")!!) }
     val feedback = remember(context) { CompletionFeedback(context) }
     val feedbackView = LocalView.current
     val currentHaptics by rememberUpdatedState(haptics)
@@ -199,7 +199,8 @@ fun TodoApp(requestedTask: String? = null, sharedText: String? = null, newTaskRe
             topBar = { Column(Modifier.statusBarsPadding().padding(horizontal = 12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (!primary) IconButton(onClick = { page = "今天" }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "返回") }
-                    Text(title, Modifier.weight(1f).padding(start = 8.dp, top = 12.dp, bottom = 8.dp), style = MaterialTheme.typography.titleLarge)
+                    // 今天 keeps the hero title; other pages get a compact bar so list content starts higher.
+                    Text(title, Modifier.weight(1f).padding(start = 8.dp, top = if (page == "今天") 12.dp else 2.dp, bottom = if (page == "今天") 8.dp else 2.dp), style = if (page == "今天") MaterialTheme.typography.titleLarge else MaterialTheme.typography.titleMedium)
                     if (page == "清单") Box {
                         IconButton(onClick = { tagMenu = true }) { Icon(Icons.Outlined.MoreHoriz, "管理标签") }
                         DropdownMenu(expanded = tagMenu, onDismissRequest = { tagMenu = false }) {
@@ -252,7 +253,7 @@ fun TodoApp(requestedTask: String? = null, sharedText: String? = null, newTaskRe
                         Icon(Icons.Outlined.Checklist, null, Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
                         Text(when { listQuery.isNotBlank() -> "没有找到相关任务"; listTab == "已完成" -> "还没有已完成的任务。"; selectedTag == "none" -> "还没有无标签的任务。"; selectedTag != null -> "这个标签下还没有待办。"; else -> "还没有待办。" }, Modifier.padding(top = 12.dp))
                     } }
-                    items(list, key = { it.task.id }) { row -> Column(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(160), placementSpec = tween(280, easing = FastOutSlowInEasing), fadeOutSpec = tween(100))) { SwipeableTaskRow(row, now, !busy, { vm.complete(row.task, row.task.completedAt == null) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id], reschedule = { vm.scheduleTomorrow(row) }, startAction = swipeRight, endAction = swipeLeft) } }
+                    items(list, key = { it.task.id }) { row -> Column(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(160), placementSpec = tween(280, easing = FastOutSlowInEasing), fadeOutSpec = tween(100))) { SwipeableTaskRow(row, now, !busy, { vm.complete(row.task, row.task.completedAt == null) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id], scheduleToday = { vm.scheduleToday(row) }, reschedule = { vm.scheduleTomorrow(row) }, startAction = swipeRight, endAction = swipeLeft) } }
                 }
             } else {
                 val filtered = remember(tasks, page, now) {
@@ -280,7 +281,7 @@ fun TodoApp(requestedTask: String? = null, sharedText: String? = null, newTaskRe
                             TextButton(onClick = { page = "之后" }) { Text("之后"); Icon(Icons.Outlined.ChevronRight, null) }
                         }
                     }
-                    if (page == "收件箱" && inboxHint) item { Row(verticalAlignment = Alignment.CenterVertically) { Text("还没决定哪天做的事，先放这里。", Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant); IconButton(onClick = { inboxHint = false; settings.edit().putBoolean("inbox_hint_dismissed", true).apply() }) { Icon(Icons.Outlined.Close, "关闭说明") } } }
+                    if (page == "收件箱" && inboxHint) item { Row(verticalAlignment = Alignment.CenterVertically) { Text("还没决定哪天做的事，先放这里。", Modifier.weight(1f), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant); IconButton(onClick = { inboxHint = false; settings.edit().putBoolean("inbox_hint_dismissed", true).apply() }) { Icon(Icons.Outlined.Close, "关闭说明") } } }
                     if (filtered.isEmpty()) item {
                         // An emptied Today after finishing work is a win, not a blank list; acknowledge it and lead to 结束一天 below.
                         val doneToday = tasks.count { it.task.completedOn == now.toLocalDate().toString() }
@@ -293,12 +294,12 @@ fun TodoApp(requestedTask: String? = null, sharedText: String? = null, newTaskRe
                     } }
                     groups.forEach { (group, rows) ->
                         if (group.isNotEmpty() && !(page == "今天" && groups.size == 1 && group == "今天")) item(key = "group:$group") { Text(group, Modifier.padding(top = 20.dp, bottom = 8.dp), fontSize = 14.sp, fontWeight = FontWeight.Medium, color = if (group == "已过截止") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant) }
-                        items(rows, key = { it.task.id }) { row -> Column(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(160), placementSpec = tween(280, easing = FastOutSlowInEasing), fadeOutSpec = tween(100))) { SwipeableTaskRow(row, now, !busy, { vm.complete(row.task, row.task.completedAt == null) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id], reschedule = { vm.scheduleTomorrow(row) }, startAction = swipeRight, endAction = swipeLeft) } }
+                        items(rows, key = { it.task.id }) { row -> Column(if (reducedMotion) Modifier else Modifier.animateItem(fadeInSpec = tween(160), placementSpec = tween(280, easing = FastOutSlowInEasing), fadeOutSpec = tween(100))) { SwipeableTaskRow(row, now, !busy, { vm.complete(row.task, row.task.completedAt == null) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id], scheduleToday = { vm.scheduleToday(row) }, reschedule = { vm.scheduleTomorrow(row) }, startAction = swipeRight, endAction = swipeLeft) } }
                     }
                     if (page == "今天") {
                         val completed = tasks.filter { it.task.completedOn == now.toLocalDate().toString() }.sortedByDescending { it.task.completedAt }
                         if (completed.isNotEmpty()) item { TextButton(onClick = { completedOpen = !completedOpen }, modifier = Modifier.padding(top = 12.dp)) { Icon(if (completedOpen) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, null); Text("今天完成 ${completed.size} 项") } }
-                        if (completedOpen) items(completed, key = { "completed:${it.task.id}" }) { row -> SwipeableTaskRow(row, now, !busy, { vm.complete(row.task, false) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id], reschedule = { vm.scheduleTomorrow(row) }, startAction = swipeRight, endAction = swipeLeft) }
+                        if (completedOpen) items(completed, key = { "completed:${it.task.id}" }) { row -> SwipeableTaskRow(row, now, !busy, { vm.complete(row.task, false) }, { vm.draft(EditorDraft(row.task, row.tags.map(Tag::name), row.reminder, false)) }, presentation.targets[row.task.id], scheduleToday = { vm.scheduleToday(row) }, reschedule = { vm.scheduleTomorrow(row) }, startAction = swipeRight, endAction = swipeLeft) }
                         item { TextButton(onClick = { finishToday() }, modifier = Modifier.padding(top = 12.dp)) { Icon(Icons.Outlined.NightsStay, null, Modifier.size(16.dp)); Spacer(Modifier.width(6.dp)); Text("结束一天") } }
                     }
                 } }
@@ -336,29 +337,34 @@ fun TodoApp(requestedTask: String? = null, sharedText: String? = null, newTaskRe
             if (t.note.isNotBlank()) Text(t.note.lineSequence().firstOrNull { it.isNotBlank() }?.trim().orEmpty(), Modifier.padding(top = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = .22f))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun SwipeableTaskRow(record: TaskRecord, now: LocalDateTime, enabled: Boolean, complete: () -> Unit, edit: () -> Unit, completionTarget: Boolean? = null, reschedule: () -> Unit, startAction: String, endAction: String) {
+@Composable fun SwipeableTaskRow(record: TaskRecord, now: LocalDateTime, enabled: Boolean, complete: () -> Unit, edit: () -> Unit, completionTarget: Boolean? = null, scheduleToday: () -> Unit, reschedule: () -> Unit, startAction: String, endAction: String) {
     val completed = record.task.completedAt != null
     // The dismiss state is remembered per item key while lambdas/row are recreated on every emission;
     // without rememberUpdatedState a swipe could act on a stale revision and fail the optimistic-lock check.
     val currentComplete by rememberUpdatedState(complete)
+    val currentScheduleToday by rememberUpdatedState(scheduleToday)
     val currentReschedule by rememberUpdatedState(reschedule)
     val currentActive by rememberUpdatedState(enabled && completionTarget == null)
     val currentCompleted by rememberUpdatedState(completed)
     val currentStart by rememberUpdatedState(startAction)
     val currentEnd by rememberUpdatedState(endAction)
-    // 安排到明天 never applies to an already-completed task; 关闭 disarms the direction entirely.
+    val currentScheduleDate by rememberUpdatedState(record.task.scheduleDate)
+    val currentToday by rememberUpdatedState(now.toLocalDate().toString())
+    val currentTomorrow by rememberUpdatedState(now.toLocalDate().plusDays(1).toString())
+    // Scheduling actions never apply to a completed task or one already on the target day; 关闭 disarms the direction.
     fun actionFor(direction: SwipeToDismissBoxValue): String? = when (direction) {
         SwipeToDismissBoxValue.StartToEnd -> currentStart
         SwipeToDismissBoxValue.EndToStart -> currentEnd
         else -> null
-    }?.takeUnless { it == "关闭" || (it == "安排到明天" && currentCompleted) }
+    }?.takeUnless { it == "关闭" || (it != "完成或恢复" && currentCompleted) || (it == "安排到今天" && currentScheduleDate == currentToday) || (it == "安排到明天" && currentScheduleDate == currentTomorrow) }
     val state = rememberSwipeToDismissBoxState(confirmValueChange = { value ->
         if (value == SwipeToDismissBoxValue.Settled) true else {
             if (currentActive) when (actionFor(value)) {
                 "完成或恢复" -> currentComplete()
+                "安排到今天" -> currentScheduleToday()
                 "安排到明天" -> currentReschedule()
             }
             false
@@ -384,8 +390,8 @@ fun TodoApp(requestedTask: String? = null, sharedText: String? = null, newTaskRe
                     .graphicsLayer { alpha = ramp; val s = .5f + .5f * ramp; scaleX = s; scaleY = s }
                     .background(if (completing) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape),
                     contentAlignment = Alignment.Center) {
-                    Icon(if (completing) { if (currentCompleted) Icons.AutoMirrored.Outlined.Undo else Icons.Outlined.Check } else Icons.Outlined.Event,
-                        if (completing) { if (currentCompleted) "恢复" else "完成" } else "安排到明天",
+                    Icon(if (completing) { if (currentCompleted) Icons.AutoMirrored.Outlined.Undo else Icons.Outlined.Check } else if (action == "安排到今天") Icons.Outlined.Today else Icons.Outlined.Event,
+                        if (completing) { if (currentCompleted) "恢复" else "完成" } else action,
                         Modifier.size(22.dp),
                         tint = if (completing) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
                 }

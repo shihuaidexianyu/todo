@@ -284,9 +284,9 @@ fun openExactSettings(context: android.content.Context) { if (Build.VERSION.SDK_
         SettingSwitch("操作震动", "完成和恢复任务时轻触反馈", haptics, setHaptics)
         SettingSwitch("完成提示音", "静音或勿扰时不播放", sound, setSound)
         Text("右滑", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("完成或恢复", "安排到明天", "关闭").forEach { FilterChip(swipeRight == it, { setSwipeRight(it) }, label = { Text(it) }) } }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("完成或恢复", "安排到今天", "安排到明天", "关闭").forEach { FilterChip(swipeRight == it, { setSwipeRight(it) }, label = { Text(it) }) } }
         Text("左滑", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("安排到明天", "完成或恢复", "关闭").forEach { FilterChip(swipeLeft == it, { setSwipeLeft(it) }, label = { Text(it) }) } }
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { listOf("安排到今天", "安排到明天", "完成或恢复", "关闭").forEach { FilterChip(swipeLeft == it, { setSwipeLeft(it) }, label = { Text(it) }) } }
         HorizontalDivider(Modifier.padding(vertical = 8.dp))
         Text("提醒", style = MaterialTheme.typography.titleMedium)
         Meta(status)

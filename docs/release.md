@@ -1,3 +1,16 @@
+# todo 1.2.1
+
+[下载 APK / AAB](https://github.com/shihuaidexianyu/todo/releases/tag/v1.2.1) · versionCode 7，沿用原 release 签名，可覆盖安装。
+
+- 左滑默认改为「安排到今天」，向右一划即可把收件箱里的事放到今天；两个方向可在「设置 → 手势与反馈」中分别改为完成或恢复、安排到今天、安排到明天或关闭。
+- 对已经在目标日期的任务，安排类手势不再触发：拖动后回弹、不显示图标，避免误操作。
+- 列表任务间的分隔线加深。
+- 收件箱、清单等页面改用紧凑标题栏，内容更靠上；「今天」保留大标题。
+
+验证范围见 [验证记录](verification.md)。
+
+---
+
 # todo 1.2.0
 
 [下载 APK / AAB](https://github.com/shihuaidexianyu/todo/releases/tag/v1.2.0) · versionCode 6，沿用原 release 签名，可覆盖安装。

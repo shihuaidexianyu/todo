@@ -186,12 +186,33 @@ class WorkflowTest {
         ui.waitUntil(8_000) { ui.onAllNodesWithText("还没有已完成的任务。").fetchSemanticsNodes().isNotEmpty() }
         ui.onNodeWithText("今天").performClick()
         ui.waitUntil(8_000) { ui.onAllNodesWithText("滑动处理的任务").fetchSemanticsNodes().isNotEmpty() }
-        swipeRow("滑动处理的任务", left = true)
-        ui.waitUntil(8_000) { ui.onAllNodesWithText("滑动处理的任务").fetchSemanticsNodes().isEmpty() }
+        // The default left swipe schedules to today (a no-op here); switch it to tomorrow first.
+        ui.onNodeWithContentDescription("设置").performClick()
+        ui.onAllNodesWithText("安排到明天")[1].performScrollTo().performClick()
+        ui.onNodeWithText("今天").performClick()
+        try {
+            swipeRow("滑动处理的任务", left = true)
+            ui.waitUntil(8_000) { ui.onAllNodesWithText("滑动处理的任务").fetchSemanticsNodes().isEmpty() }
+            val repo = (ui.activity.application as TodoApplication).repository
+            Assert.assertEquals(java.time.LocalDate.now().plusDays(1).toString(), runBlocking { repo.dao.tasks().single() }.scheduleDate)
+            ui.onNodeWithText("之后").performClick()
+            ui.onNodeWithText("滑动处理的任务").assertIsDisplayed()
+        } finally {
+            // Leave test settings as they were for repeatability.
+            ui.onNodeWithContentDescription("设置").performClick()
+            ui.onAllNodesWithText("安排到今天")[1].performScrollTo().performClick()
+        }
+    }
+    @Test fun swipeSchedulesToTodayByDefault() {
+        ui.onNodeWithText("收件箱").performClick()
+        add("默认安排到今天的任务")
+        ui.onNodeWithText("默认安排到今天的任务").assertIsDisplayed()
+        swipeRow("默认安排到今天的任务", left = true)
+        ui.waitUntil(8_000) { ui.onAllNodesWithText("默认安排到今天的任务").fetchSemanticsNodes().isEmpty() }
+        ui.onNodeWithText("今天").performClick()
+        ui.onNodeWithText("默认安排到今天的任务").assertIsDisplayed()
         val repo = (ui.activity.application as TodoApplication).repository
-        Assert.assertEquals(java.time.LocalDate.now().plusDays(1).toString(), runBlocking { repo.dao.tasks().single() }.scheduleDate)
-        ui.onNodeWithText("之后").performClick()
-        ui.onNodeWithText("滑动处理的任务").assertIsDisplayed()
+        Assert.assertEquals(java.time.LocalDate.now().toString(), runBlocking { repo.dao.tasks().single() }.scheduleDate)
     }
     @Test fun swipeActionsConfigurable() {
         try {
@@ -214,7 +235,7 @@ class WorkflowTest {
             // Leave test settings as they were for repeatability.
             ui.onNodeWithContentDescription("设置").performClick()
             ui.onAllNodesWithText("完成或恢复")[0].performScrollTo().performClick()
-            ui.onAllNodesWithText("安排到明天")[1].performScrollTo().performClick()
+            ui.onAllNodesWithText("安排到今天")[1].performScrollTo().performClick()
         }
     }
     private fun swipeRow(title: String, left: Boolean) {

@@ -80,6 +80,13 @@ class TodoViewModel(app: Application) : AndroidViewModel(app) {
     fun save() { val d = editor.value ?: return; perform(block = { repo.save(d.task, d.names, d.reminder, d.isNew) }, after = { draft(null) }) }
     fun complete(t: Task, value: Boolean) = perform(block = { repo.complete(t.id, value) }, after = { completionFeedback.tryEmit(value) })
     // Swipe gesture entry: keep tags/reminder untouched, move only the schedule date. Quiet like complete().
+    fun scheduleToday(record: TaskRecord) {
+        val t = record.task
+        if (t.completedAt != null) return
+        val today = LocalDate.now(repo.clock).toString()
+        if (t.scheduleDate == today) return
+        perform(block = { repo.save(t.copy(scheduleDate = today), record.tags.map(Tag::name), record.reminder, false) })
+    }
     fun scheduleTomorrow(record: TaskRecord) {
         val t = record.task
         if (t.completedAt != null) return

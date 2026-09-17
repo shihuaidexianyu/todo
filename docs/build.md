@@ -4,9 +4,9 @@
 
 Windows 执行 `scripts/build-release.ps1`，输出到 `artifacts/`：
 
-- `todo-1.2.0-release.apk`
-- `todo-1.2.0-release.aab`
-- `release-validation/1.2.0/`：签名校验、SHA-256 与 R8 混淆映射。
+- `todo-1.2.1-release.apk`
+- `todo-1.2.1-release.aab`
+- `release-validation/1.2.1/`：签名校验、SHA-256 与 R8 混淆映射。
 
 首次运行发布脚本会在 `.signing/` 生成本机独立密钥和 `keystore.properties`，后续复用。整个目录已被 Git 忽略，应单独安全备份；后续覆盖更新需要原签名。
 

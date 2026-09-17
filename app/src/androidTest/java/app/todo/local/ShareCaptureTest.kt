@@ -31,7 +31,7 @@ class ShareCaptureTest {
             .setAction(Intent.ACTION_SEND).putExtra(Intent.EXTRA_TEXT, "分享来的标题\n备注第二行"))
         compose.waitUntil(10_000) { compose.onAllNodesWithText("新建任务").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithText("分享来的标题").assertExists()
-        compose.onNodeWithText("保存").performScrollTo().performClick()
+        compose.onNodeWithText("保存").assertIsDisplayed().performClick()
         compose.waitUntil(8_000) { compose.onAllNodesWithText("新建任务").fetchSemanticsNodes().isEmpty() }
         val saved = runBlocking { app.repository.dao.tasks().single() }
         Assert.assertEquals("分享来的标题", saved.title)
